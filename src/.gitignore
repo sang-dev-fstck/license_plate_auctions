@@ -1,0 +1,23 @@
+# Bỏ qua thư mục build của Maven (nơi chứa code đã biên dịch, rất nặng)
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Bỏ qua cấu hình riêng của IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Bỏ qua file rác của hệ điều hành macOS
+.DS_Store
+
+# Bỏ qua các file biến môi trường và key bảo mật
+.env
+*.pem
+*.key
+
+# Bỏ qua file cấu hình chứa mật khẩu DB (NẾU CÓ)
+# Ghi chú: Thường người ta sẽ tạo 1 file application-secret.properties để chứa pass,
+# và file application.properties chung chung thì vẫn đẩy lên.
+# Nếu cậu để thẳng pass DB trong application.properties thì bỏ comment dòng dưới:
+# src/main/resources/application.properties
