@@ -25,8 +25,5 @@ public class TagRuleController {
     public TagRuleResponse addTagRule(@RequestBody @Valid TagRuleRequest tagRule) {
         return tagRuleService.addTagRule(tagRule);
     }
-//    @PostMapping
-//    public TagRuleResponse addTagRule(@RequestBody @Valid TagRuleRequest tagRule) {
-//        return tagRuleService.addTagRule(tagRule);
-//    }
+
 }
