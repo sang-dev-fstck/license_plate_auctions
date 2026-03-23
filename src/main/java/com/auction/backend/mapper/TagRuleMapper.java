@@ -2,6 +2,7 @@ package com.auction.backend.mapper;
 
 import com.auction.backend.dto.TagRuleRequest;
 import com.auction.backend.dto.TagRuleResponse;
+import com.auction.backend.dto.UpdateTagRuleRequest;
 import com.auction.backend.entity.TagRule;
 import org.mapstruct.*;
 
@@ -22,5 +23,5 @@ public interface TagRuleMapper {
     // Nếu entity của bạn có các trường Audit (ngày tạo, người tạo), cũng nên ignore luôn:
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    void updateEntityFromRequest(TagRuleRequest request, @MappingTarget TagRule entity);
+    void updateEntityFromRequest(UpdateTagRuleRequest request, @MappingTarget TagRule entity);
 }

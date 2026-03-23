@@ -2,6 +2,7 @@ package com.auction.backend.service.service.impl;
 
 import com.auction.backend.dto.CategoryRequest;
 import com.auction.backend.dto.CategoryResponse;
+import com.auction.backend.dto.UpdateCategoryRequest;
 import com.auction.backend.entity.Category;
 import com.auction.backend.mapper.CategoryMapper;
 import com.auction.backend.repository.CategoryRepository;
@@ -37,7 +38,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public CategoryResponse updateCategory(String id, CategoryRequest category) {
+    public CategoryResponse updateCategory(String id, UpdateCategoryRequest category) {
         Category existingCategory = cateRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy category với ID: " + id));
         Category oldSnapshot = new Category();
@@ -48,7 +49,7 @@ public class CategoryServiceImpl implements CategoryService {
         }
         mapper.updateEntityFromRequest(category, existingCategory);
         if (existingCategory.equals(oldSnapshot)) {
-            throw new IllegalArgumentException("Dữ liệu không có thay đổi nào so với hiện tại");
+            return mapper.toResponse(existingCategory);
         }
         Category savedCategory = cateRepo.save(existingCategory);
         return mapper.toResponse(savedCategory);

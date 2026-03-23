@@ -2,6 +2,7 @@ package com.auction.backend.service.service.impl;
 
 import com.auction.backend.dto.TagRuleRequest;
 import com.auction.backend.dto.TagRuleResponse;
+import com.auction.backend.dto.UpdateTagRuleRequest;
 import com.auction.backend.entity.TagRule;
 import com.auction.backend.mapper.TagRuleMapper;
 import com.auction.backend.repository.TagRuleRepository;
@@ -36,7 +37,7 @@ public class TagRuleImpl implements TagRuleService {
     }
 
     @Override
-    public TagRuleResponse updateTagRule(String id, TagRuleRequest tagRule) {
+    public TagRuleResponse updateTagRule(String id, UpdateTagRuleRequest tagRule) {
         TagRule existingTagRule = tagRuleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy quy tắc với ID: " + id));
         TagRule oldSnapshot = new TagRule();
@@ -48,7 +49,7 @@ public class TagRuleImpl implements TagRuleService {
         mapper.updateEntityFromRequest(tagRule, existingTagRule);
         // (Nhờ annotation @Data của Lombok, hàm .equals() sẽ tự động so sánh từng trường bên trong)
         if (existingTagRule.equals(oldSnapshot)) {
-            throw new IllegalArgumentException("Dữ liệu không có thay đổi nào so với hiện tại");
+            return mapper.toResponse(existingTagRule);
         }
         TagRule savedTagRule = tagRuleRepository.save(existingTagRule);
         return mapper.toResponse(savedTagRule);
