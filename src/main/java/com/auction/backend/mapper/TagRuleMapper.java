@@ -24,4 +24,6 @@ public interface TagRuleMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntityFromRequest(UpdateTagRuleRequest request, @MappingTarget TagRule entity);
+
+    TagRule cloneEntity(TagRule entity);
 }

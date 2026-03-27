@@ -23,5 +23,5 @@ public class TagRuleRequest {
     @NotEmpty(message = "Rule values can not be empty")
     private List<String> values;
     // Mặc định là true, nhưng cho phép Admin gửi false nếu muốn tạo nháp
-    private boolean isActive = true;
+    private boolean active = true;
 }

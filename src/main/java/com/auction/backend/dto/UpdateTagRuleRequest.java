@@ -31,5 +31,5 @@ public class UpdateTagRuleRequest {
 
     // QUAN TRỌNG: Chuyển 'boolean' (kiểu nguyên thủy) thành 'Boolean' (kiểu Object).
     // Bỏ giá trị mặc định 'true' đi.
-    private Boolean isActive;
+    private Boolean active;
 }

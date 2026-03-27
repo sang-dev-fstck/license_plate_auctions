@@ -8,7 +8,6 @@ import com.auction.backend.mapper.CategoryMapper;
 import com.auction.backend.repository.CategoryRepository;
 import com.auction.backend.service.CategoryService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -41,8 +40,7 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryResponse updateCategory(String id, UpdateCategoryRequest category) {
         Category existingCategory = cateRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy category với ID: " + id));
-        Category oldSnapshot = new Category();
-        BeanUtils.copyProperties(existingCategory, oldSnapshot);
+        Category oldSnapshot = mapper.cloneEntity(existingCategory);
         if (!existingCategory.getCategoryName().equals(category.getCategoryName())
                 && cateRepo.existsByCategoryName(category.getCategoryName())) {
             throw new RuntimeException("Category '" + category.getCategoryName() + "' đã bị sử dụng bởi một category khác!");

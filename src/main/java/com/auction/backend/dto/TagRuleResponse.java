@@ -19,5 +19,5 @@ public class TagRuleResponse {
     private String targetTag;
     private RuleType type;
     private List<String> values;
-    private boolean isActive;
+    private boolean active;
 }

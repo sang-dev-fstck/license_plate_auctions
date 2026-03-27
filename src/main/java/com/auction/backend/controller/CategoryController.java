@@ -27,7 +27,7 @@ public class CategoryController {
         return categoryService.addNewCategory(request);
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<CategoryResponse> updateCategory(
             @PathVariable String id,
             @RequestBody @Valid UpdateCategoryRequest request) {

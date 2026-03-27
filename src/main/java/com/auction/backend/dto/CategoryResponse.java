@@ -13,5 +13,5 @@ public class CategoryResponse {
     private String id;
     private String categoryName;
     private String regex;
-    private boolean isSpecial;
+    private boolean special;
 }

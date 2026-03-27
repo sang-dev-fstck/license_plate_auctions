@@ -18,5 +18,5 @@ public class UpdateCategoryRequest {
 
     // Chuyển kiểu nguyên thủy 'boolean' thành Object 'Boolean'.
     // Bỏ giá trị mặc định '= true' để nó nhận null khi không được gửi lên.
-    private Boolean isSpecial;
+    private Boolean special;
 }

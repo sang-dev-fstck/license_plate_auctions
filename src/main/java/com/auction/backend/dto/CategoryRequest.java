@@ -12,5 +12,5 @@ public class CategoryRequest {
     @NotBlank(message = "Regex can not be blank")
     private String regex;
 
-    private boolean isSpecial = true;
+    private boolean special = true;
 }
