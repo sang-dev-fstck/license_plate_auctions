@@ -1,12 +1,14 @@
 package com.auction.backend.entity;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
 
-@Data
+@Getter
+@Setter
 public abstract class BaseEntity {
 
     @CreatedDate // Tự động lưu thời gian khi tạo mới
