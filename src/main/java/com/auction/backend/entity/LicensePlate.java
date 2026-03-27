@@ -1,7 +1,8 @@
 package com.auction.backend.entity;
 
-import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
@@ -12,8 +13,9 @@ import java.math.BigDecimal;
 import java.util.List;
 
 @Document(collection = "license_plates")
-@EqualsAndHashCode(callSuper = true, exclude = {"createdAt", "updatedAt"})
-@Data
+@EqualsAndHashCode(callSuper = false, onlyExplicitlyIncluded = true)
+@Getter
+@Setter
 // --- KHAI BÁO COMPOUND INDEX TẠI ĐÂY ---
 @CompoundIndexes({
         // 1. Index cho bộ lọc cơ bản: Trạng thái -> Tỉnh -> Loại
@@ -28,29 +30,36 @@ public class LicensePlate extends BaseEntity {
     private String id;
 
     // Search đích danh biển số -> Vẫn dùng Single Index Unique
+    @EqualsAndHashCode.Include
     @Indexed(unique = true)
     private String plateNumber;
 
     // Các trường này đã nằm trong Compound Index nên có thể bỏ @Indexed đơn lẻ
     // để tiết kiệm tài nguyên ghi (Write Performance).
+    @EqualsAndHashCode.Include
     private String provinceId;
+    @EqualsAndHashCode.Include
     private String provinceName;
 
+    @EqualsAndHashCode.Include
     private String categoryId;
+    @EqualsAndHashCode.Include
     private String categoryName;
-
+    @EqualsAndHashCode.Include
     private BigDecimal initialPrice;
-
+    @EqualsAndHashCode.Include
     private String localSymbol;
+    @EqualsAndHashCode.Include
     private String serialLetter;
 
     // Search đích danh số đẹp (VD: 55555) -> Vẫn nên giữ Single Index
     @Indexed
+    @EqualsAndHashCode.Include
     private String serialNumber;
-
+    @EqualsAndHashCode.Include
     private String status;
-
+    @EqualsAndHashCode.Include
     private String vehicleType;
-
+    @EqualsAndHashCode.Include
     private List<String> tags;
 }
