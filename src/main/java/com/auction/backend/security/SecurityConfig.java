@@ -1,4 +1,4 @@
-package com.auction.backend.sercurity;
+package com.auction.backend.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

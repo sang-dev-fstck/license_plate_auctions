@@ -1,4 +1,4 @@
-package com.auction.backend.sercurity;
+package com.auction.backend.security;
 
 import com.auction.backend.entity.Account;
 import lombok.RequiredArgsConstructor;
@@ -11,12 +11,13 @@ import java.util.Collections;
 
 @RequiredArgsConstructor
 public class CustomUserDetails implements UserDetails {
-    private final Account account;
-
+    // Đánh dấu transient (tùy chọn) để báo cho máy ảo Java biết không cần serialize toàn bộ cục Account này nếu có ném qua mạng
+    private final transient Account account;
+    
     // Cấp quyền cho User (Admin hay User thường)
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singleton(new SimpleGrantedAuthority(account.getRole().name()));
+        return Collections.singleton(new SimpleGrantedAuthority("ROLE_" + account.getRole().name()));
     }
 
     @Override
