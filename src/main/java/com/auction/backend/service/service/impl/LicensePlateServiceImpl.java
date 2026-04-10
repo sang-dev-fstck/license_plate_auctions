@@ -6,6 +6,7 @@ import com.auction.backend.dto.LicensePlateResponse;
 import com.auction.backend.dto.PageResponse;
 import com.auction.backend.dto.PlateSearchRequest;
 import com.auction.backend.entity.LicensePlate;
+import com.auction.backend.exception.AppException;
 import com.auction.backend.mapper.LicensePlateMapper;
 import com.auction.backend.repository.LicensePlateRepository;
 import com.auction.backend.repository.custom.LicensePlateCustomRepository;
@@ -39,10 +40,10 @@ public class LicensePlateServiceImpl implements LicensePlateService {
         String serial = PlateUtils.extractSerialNumber(plate.getPlateNumber(), isCar);
         String localSymbol = PlateUtils.extractLocalSymbol(plate.getPlateNumber());
         if (serial.isEmpty()) {
-            throw new RuntimeException("Biển số không hợp lệ !");
+            throw new AppException("Biển số không hợp lệ !");
         }
         if (localSymbol.isEmpty()) {
-            throw new RuntimeException("Biển số không hợp lệ !");
+            throw new AppException("Biển số không hợp lệ !");
         }
         LicensePlate entity = mapper.toEntity(plate);
         entity.setStatus("AVAILABLE");

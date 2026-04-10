@@ -28,7 +28,8 @@ public class PageResponse<T> {
         return new PageResponse<>(mappedData, metaInfo);
     }
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
