@@ -9,6 +9,7 @@ import com.auction.backend.repository.TagRuleRepository;
 import com.auction.backend.service.TagRuleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -19,11 +20,13 @@ public class TagRuleImpl implements TagRuleService {
     private final TagRuleMapper mapper;
 
     @Override
+    @Transactional(readOnly = true)
     public List<TagRule> getAllTagRules() {
         return tagRuleRepository.findAll();
     }
 
     @Override
+    @Transactional
     public TagRuleResponse addTagRule(TagRuleRequest tagRule) {
         if (tagRuleRepository.existsByRuleCode(tagRule.getRuleCode())) {
             throw new RuntimeException("Mã quy tắc '" + tagRule.getRuleCode() + "' đã tồn tại!");
@@ -36,20 +39,16 @@ public class TagRuleImpl implements TagRuleService {
     }
 
     @Override
+    @Transactional
     public TagRuleResponse updateTagRule(String id, UpdateTagRuleRequest tagRule) {
         TagRule existingTagRule = tagRuleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy quy tắc với ID: " + id));
-        TagRule oldSnapshot = mapper.cloneEntity(existingTagRule);
         if (!existingTagRule.getRuleCode().equals(tagRule.getRuleCode())
                 && tagRuleRepository.existsByRuleCode(tagRule.getRuleCode())) {
             throw new RuntimeException("Mã quy tắc '" + tagRule.getRuleCode() + "' đã bị sử dụng bởi một quy tắc khác!");
         }
         mapper.updateEntityFromRequest(tagRule, existingTagRule);
         // (Nhờ annotation @Data của Lombok, hàm .equals() sẽ tự động so sánh từng trường bên trong)
-        if (existingTagRule.equals(oldSnapshot)) {
-            return mapper.toResponse(existingTagRule);
-        }
-        TagRule savedTagRule = tagRuleRepository.save(existingTagRule);
-        return mapper.toResponse(savedTagRule);
+        return mapper.toResponse(existingTagRule);
     }
 }
