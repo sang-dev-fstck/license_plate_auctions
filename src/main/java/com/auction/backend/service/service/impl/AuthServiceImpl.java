@@ -4,7 +4,6 @@ import com.auction.backend.dto.LoginRequest;
 import com.auction.backend.dto.RegisterRequest;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.AccountRepository;
-import com.auction.backend.repository.WalletRepository;
 import com.auction.backend.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,7 +16,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
     private final AccountRepository accountRepository;
-    private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     // Công cụ giúp Spring Boot 3.x chủ động lưu Session vào Redis

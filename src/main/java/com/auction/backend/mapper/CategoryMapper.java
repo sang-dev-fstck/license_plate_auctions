@@ -20,4 +20,5 @@ public interface CategoryMapper {
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntityFromRequest(UpdateCategoryRequest request, @MappingTarget Category entity);
 
+    Category cloneEntity(Category entity);
 }

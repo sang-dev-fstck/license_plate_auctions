@@ -14,7 +14,6 @@ import com.auction.backend.service.LicensePlateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -28,7 +27,6 @@ public class LicensePlateServiceImpl implements LicensePlateService {
     private final LicensePlateMapper mapper;
 
     @Override
-    @Transactional(readOnly = true)
     public List<LicensePlateResponse> getAllPlates() {
         // Service query DB và tự map sang Response DTO luôn
         return licensePlateRepository.findAll().stream()
@@ -37,7 +35,6 @@ public class LicensePlateServiceImpl implements LicensePlateService {
     }
 
     @Override
-    @Transactional
     public LicensePlateResponse addPlate(LicensePlateRequest plate) {
         boolean isCar = "CAR".equalsIgnoreCase(plate.getVehicleType());
         String serial = PlateUtils.extractSerialNumber(plate.getPlateNumber(), isCar);
@@ -59,7 +56,6 @@ public class LicensePlateServiceImpl implements LicensePlateService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public PageResponse<LicensePlateResponse> searchPlates(PlateSearchRequest request) {
         Page<LicensePlate> pageResult = customRepository.searchDynamic(request);
         // 2. Map từ Entity sang DTO Response

@@ -20,4 +20,5 @@ public interface AccountMapper {
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntityFromRequest(UpdateAccountRequest request, @MappingTarget Account entity);
 
+    Account cloneEntity(Account entity);
 }

@@ -9,7 +9,6 @@ import com.auction.backend.repository.CategoryRepository;
 import com.auction.backend.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,7 +20,6 @@ public class CategoryServiceImpl implements CategoryService {
     private final CategoryMapper mapper;
 
     @Override
-    @Transactional(readOnly = true)
     public List<CategoryResponse> getAllCategories() {
         return cateRepo.findAll().stream()
                 .map(mapper::toResponse)
@@ -29,7 +27,6 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    @Transactional
     public CategoryResponse addNewCategory(CategoryRequest category) {
         if (cateRepo.existsByCategoryName(category.getCategoryName())) {
             throw new RuntimeException("Category '" + category.getCategoryName() + "' đã tồn tại!");
@@ -40,16 +37,19 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    @Transactional
     public CategoryResponse updateCategory(String id, UpdateCategoryRequest category) {
         Category existingCategory = cateRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy category với ID: " + id));
+        Category oldSnapshot = mapper.cloneEntity(existingCategory);
         if (!existingCategory.getCategoryName().equals(category.getCategoryName())
                 && cateRepo.existsByCategoryName(category.getCategoryName())) {
             throw new RuntimeException("Category '" + category.getCategoryName() + "' đã bị sử dụng bởi một category khác!");
         }
         mapper.updateEntityFromRequest(category, existingCategory);
-
-        return mapper.toResponse(existingCategory);
+        if (existingCategory.equals(oldSnapshot)) {
+            return mapper.toResponse(existingCategory);
+        }
+        Category savedCategory = cateRepo.save(existingCategory);
+        return mapper.toResponse(savedCategory);
     }
 }
