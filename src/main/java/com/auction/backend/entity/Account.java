@@ -31,18 +31,11 @@ public class Account extends BaseEntity {
     @EqualsAndHashCode.Include
     private String phoneNumber;
 
-    @EqualsAndHashCode.Include
-    private String fullName;
-
-    @Builder.Default
-    private WalletInfo wallet = new WalletInfo();
-
     private Role role;
-    // FIX 1: Set mặc định trạng thái tài khoản là Active
-    @Builder.Default
-    private Boolean active = true;
+    private Boolean active;
 
     @Version
     private Long version;
+
 }
 
