@@ -56,7 +56,9 @@ public class SecurityConfig {
                 // 2. Phân luồng giao thông
                 .authorizeHttpRequests(auth -> auth
                         // Đường ưu tiên: Mở cửa tự do cho Đăng nhập, Đăng ký
-                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.POST,
+                                "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/v1/plates/**",
                                 "/api/v1/categories/**",
