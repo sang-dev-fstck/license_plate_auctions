@@ -20,13 +20,13 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Mật khẩu không được để trống")
-    @Size(min = 8, message = "Mật khẩu phải từ 8 ký tự trở lên")
     // Regex: Ít nhất 1 số, 1 chữ thường, 1 chữ hoa. (Có thể thêm ký tự đặc biệt nếu muốn)
     @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,}$",
             message = "Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường và 1 chữ số")
     private String password;
 
     @NotBlank(message = "Họ tên không được để trống")
+    @Size(min = 2, max = 100)
     private String fullName;
 
     @NotBlank(message = "Số điện thoại không được để trống")

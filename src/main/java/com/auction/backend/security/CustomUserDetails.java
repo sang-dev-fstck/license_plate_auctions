@@ -13,7 +13,7 @@ import java.util.Collections;
 public class CustomUserDetails implements UserDetails {
     // Đánh dấu transient (tùy chọn) để báo cho máy ảo Java biết không cần serialize toàn bộ cục Account này nếu có ném qua mạng
     private final transient Account account;
-    
+
     // Cấp quyền cho User (Admin hay User thường)
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -39,7 +39,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return account.getIsActive() != null ? account.getIsActive() : true;
+        return account.getActive() != null ? account.getActive() : true;
     }
 
     @Override
@@ -49,6 +49,6 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return account.getIsActive() != null ? account.getIsActive() : true;
+        return account.getActive() != null ? account.getActive() : true;
     }
 }

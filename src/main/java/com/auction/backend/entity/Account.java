@@ -34,6 +34,8 @@ public class Account extends BaseEntity {
     private Role role;
     private Boolean active;
 
+    private String fullName;
+
     @Version
     private Long version;
 

@@ -56,16 +56,16 @@ public class SecurityConfig {
                 // 2. Phân luồng giao thông
                 .authorizeHttpRequests(auth -> auth
                         // Đường ưu tiên: Mở cửa tự do cho Đăng nhập, Đăng ký
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
-                                "/api/plates/**",
-                                "/api/categories/**",
-                                "/api/tag-rules/**"
+                                "/api/v1/plates/**",
+                                "/api/v1/categories/**",
+                                "/api/v1/tag-rules/**"
                         ).permitAll()
                         // QUY TẮC 3: MỞ CỬA CHO API SEARCH DÙNG METHOD POST
                         // Chỉ đích danh HTTP Method là POST và đúng URL search
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
-                                "/api/plates/search"
+                                "/api/v1/plates/search"
                         ).permitAll()
                         // Các đường còn lại (CRUD Biển số, Danh mục...): Bắt buộc phải có thẻ Session
                         .anyRequest().authenticated()
