@@ -1,7 +1,10 @@
 package com.auction.backend.controller;
 
+import com.auction.backend.dto.LoginRequest;
 import com.auction.backend.dto.RegisterRequest;
 import com.auction.backend.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,5 +22,12 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody @Valid RegisterRequest request) {
         return ResponseEntity.ok(authService.register(request));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<String> login(@RequestBody @Valid LoginRequest request,
+                                        HttpServletRequest httpRequest,
+                                        HttpServletResponse httpResponse) {
+        return ResponseEntity.ok(authService.login(request, httpRequest, httpResponse));
     }
 }

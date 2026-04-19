@@ -2,9 +2,11 @@ package com.auction.backend.service;
 
 import com.auction.backend.dto.LoginRequest;
 import com.auction.backend.dto.RegisterRequest;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 public interface AuthService {
     String register(RegisterRequest request);
 
-    String login(LoginRequest request);
+    String login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse);
 }

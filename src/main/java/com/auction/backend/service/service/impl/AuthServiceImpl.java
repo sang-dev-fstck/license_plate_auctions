@@ -9,10 +9,19 @@ import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.AccountRepository;
 import com.auction.backend.repository.WalletRepository;
 import com.auction.backend.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,6 +31,10 @@ public class AuthServiceImpl implements AuthService {
     private final AccountRepository accountRepository;
     private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+
+    private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
+
 
     @Override
     public String register(RegisterRequest request) {
@@ -57,9 +70,34 @@ public class AuthServiceImpl implements AuthService {
         return "Đăng ký tài khoản thành công";
     }
 
+    //Sau khi login thành công:
+    //Spring tạo session
+    //session id được gửi về cookie
+    //nếu bạn dùng Spring Session + Redis, session data nằm trong Redis
+    //request sau trình duyệt gửi kèm cookie
+    //Spring load security context từ session
+    //endpoint protected sẽ qua được
     @Override
-    public String login(LoginRequest request) {
-        return "";
+    public String login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            normalizeEmail(request.getEmail()),
+                            request.getPassword()
+                    )
+            );
+        } catch (Exception e) {
+            throw new AppException("Email hoặc mật khẩu không chính xác");
+        }
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+
+        securityContextRepository.saveContext(context, httpRequest, httpResponse);
+        log.info("Login success for email={}", normalizeEmail(request.getEmail()));
+        return "Đăng nhập thành công";
     }
 
     private String normalizeEmail(String email) {

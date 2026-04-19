@@ -52,7 +52,7 @@ public class SecurityConfig {
         http
                 // 1. Tắt CSRF (Bắt buộc cho REST API)
                 .csrf(AbstractHttpConfigurer::disable)
-
+                .authenticationProvider(authenticationProvider())
                 // 2. Phân luồng giao thông
                 .authorizeHttpRequests(auth -> auth
                         // Đường ưu tiên: Mở cửa tự do cho Đăng nhập, Đăng ký
