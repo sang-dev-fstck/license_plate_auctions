@@ -2,7 +2,6 @@ package com.auction.backend.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,6 +17,5 @@ public class LoginRequest {
     private String email;
 
     @NotBlank(message = "Vui lòng nhập mật khẩu")
-    @Size(max = 50, message = "Mật khẩu vượt quá độ dài cho phép")
     private String password;
 }
