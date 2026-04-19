@@ -12,4 +12,5 @@ public interface AuthService {
     String login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse);
 
     CurrentUserResponse me();
+
 }

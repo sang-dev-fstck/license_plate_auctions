@@ -1,5 +1,6 @@
 package com.auction.backend.service.service.impl;
 
+import com.auction.backend.dto.CurrentUserResponse;
 import com.auction.backend.dto.LoginRequest;
 import com.auction.backend.dto.RegisterRequest;
 import com.auction.backend.entity.Account;
@@ -98,6 +99,29 @@ public class AuthServiceImpl implements AuthService {
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
         log.info("Login success for email={}", normalizeEmail(request.getEmail()));
         return "Đăng nhập thành công";
+    }
+
+    @Override
+    public CurrentUserResponse me() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AppException("Người dùng chưa đăng nhập");
+        }
+
+        String email = authentication.getName();
+
+        Account account = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException("Không tìm thấy tài khoản hiện tại"));
+
+        return new CurrentUserResponse(
+                account.getId(),
+                account.getEmail(),
+                account.getFullName(),
+                account.getPhoneNumber(),
+                account.getRole(),
+                account.getActive()
+        );
     }
 
     private String normalizeEmail(String email) {
