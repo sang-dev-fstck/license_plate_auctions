@@ -13,4 +13,5 @@ public interface AuthService {
 
     CurrentUserResponse me();
 
+    String logout(HttpServletRequest request, HttpServletResponse response);
 }

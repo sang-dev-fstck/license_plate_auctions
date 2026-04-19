@@ -124,6 +124,17 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
+    @Override
+    public String logout(HttpServletRequest request, HttpServletResponse response) {
+        SecurityContextHolder.clearContext();
+
+        var session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        return "Đăng xuất thành công";
+    }
+
     private String normalizeEmail(String email) {
         if (email == null || email.isEmpty()) {
             throw new AppException("Email cant not be empty");
