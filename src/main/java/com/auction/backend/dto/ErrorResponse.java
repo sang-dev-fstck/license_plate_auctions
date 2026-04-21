@@ -2,7 +2,7 @@ package com.auction.backend.dto;
 
 import lombok.*;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Getter
@@ -14,11 +14,11 @@ public class ErrorResponse {
     private int status;
     private String message;
     private Map<String, String> errors;
-    private OffsetDateTime timestamp;
+    private LocalDateTime timestamp;
 
     public ErrorResponse(int status, String message) {
         this.status = status;
         this.message = message;
-        this.timestamp = OffsetDateTime.now();
+        this.timestamp = LocalDateTime.now();
     }
 }

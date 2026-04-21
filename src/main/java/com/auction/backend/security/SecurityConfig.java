@@ -24,6 +24,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
     // Inject Anh thợ mỏ vào đây
     private final CustomUserDetailsService customUserDetailsService;
+    private final ObjectMapper objectMapper; // inject từ Spring
 
     // Thuật toán Băm (Hash) mật khẩu một chiều: BCrypt (Chuẩn an toàn hiện nay)
     @Bean
@@ -107,7 +108,7 @@ public class SecurityConfig {
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.writeValue(response.getWriter(), new ErrorResponse(status, message));
+        ErrorResponse errorResponse = new ErrorResponse(status, message);
+        objectMapper.writeValue(response.getWriter(), errorResponse);
     }
 }
