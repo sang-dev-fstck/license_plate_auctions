@@ -24,20 +24,20 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     public CurrentWalletResponse getCurrentWallet() {
-        Wallet wallet = findWalletByEmail();
+        Wallet wallet = findCurrentWallet();
         log.info("Current Wallet Details: {}", wallet);
         return walletMapper.toResponse(wallet);
     }
 
     @Override
     public CurrentWalletResponse deposit(DepositRequest depositRequest) {
-        Wallet wallet = findWalletByEmail();
+        Wallet wallet = findCurrentWallet();
         wallet.deposit(depositRequest.getAmount());
         Wallet updatedWallet = walletRepository.save(wallet);
         return walletMapper.toResponse(updatedWallet);
     }
 
-    private Wallet findWalletByEmail() {
+    private Wallet findCurrentWallet() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new AppException("Người dùng chưa đăng nhập");
