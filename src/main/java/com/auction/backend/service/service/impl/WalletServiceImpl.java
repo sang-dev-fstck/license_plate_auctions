@@ -1,6 +1,7 @@
 package com.auction.backend.service.service.impl;
 
 import com.auction.backend.dto.CurrentWalletResponse;
+import com.auction.backend.dto.DepositRequest;
 import com.auction.backend.entity.Account;
 import com.auction.backend.entity.Wallet;
 import com.auction.backend.exception.AppException;
@@ -23,20 +24,29 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     public CurrentWalletResponse getCurrentWallet() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        Wallet wallet = findWalletByEmail();
+        log.info("Current Wallet Details: {}", wallet);
+        return walletMapper.toResponse(wallet);
+    }
 
+    @Override
+    public CurrentWalletResponse deposit(DepositRequest depositRequest) {
+        Wallet wallet = findWalletByEmail();
+        wallet.deposit(depositRequest.getAmount());
+        Wallet updatedWallet = walletRepository.save(wallet);
+        return walletMapper.toResponse(updatedWallet);
+    }
+
+    public Wallet findWalletByEmail() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new AppException("Người dùng chưa đăng nhập");
         }
         String username = authentication.getName();
         Account account = accountRepository.findByEmail(username)
                 .orElseThrow(() -> new AppException("Không tìm thấy người dùng"));
-
         String id = account.getId();
-
-        Wallet wallet = walletRepository.findByAccountId(id)
+        return walletRepository.findByAccountId(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy ví"));
-        log.info("Current Wallet Details: {}", wallet);
-        return walletMapper.toResponse(wallet);
     }
 }
