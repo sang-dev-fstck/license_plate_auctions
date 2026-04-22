@@ -7,6 +7,6 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface WalletRepository extends MongoRepository<Wallet, Long> {
+public interface WalletRepository extends MongoRepository<Wallet, String> {
     Optional<Wallet> findByAccountId(String accountId);
 }
