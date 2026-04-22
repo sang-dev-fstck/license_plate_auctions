@@ -31,9 +31,14 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     public CurrentWalletResponse deposit(DepositRequest depositRequest) {
+        long start = System.currentTimeMillis();
+
         Wallet wallet = findCurrentWallet();
         wallet.deposit(depositRequest.getAmount());
         Wallet updatedWallet = walletRepository.save(wallet);
+        long end = System.currentTimeMillis();
+            
+        log.info("Deposit completed in {} ms", (end - start));
         return walletMapper.toResponse(updatedWallet);
     }
 
