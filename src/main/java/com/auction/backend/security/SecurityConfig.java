@@ -1,8 +1,12 @@
 package com.auction.backend.security;
 
+import com.auction.backend.dto.ErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -20,6 +24,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
     // Inject Anh thợ mỏ vào đây
     private final CustomUserDetailsService customUserDetailsService;
+    private final ObjectMapper objectMapper; // inject từ Spring
 
     // Thuật toán Băm (Hash) mật khẩu một chiều: BCrypt (Chuẩn an toàn hiện nay)
     @Bean
@@ -50,27 +55,60 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Tắt CSRF (Bắt buộc cho REST API)
                 .csrf(AbstractHttpConfigurer::disable)
                 .authenticationProvider(authenticationProvider())
-                // 2. Phân luồng giao thông
                 .authorizeHttpRequests(auth -> auth
-                        // Đường ưu tiên: Mở cửa tự do cho Đăng nhập, Đăng ký
-                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/v1/plates/**",
                                 "/api/v1/categories/**",
                                 "/api/v1/tag-rules/**"
                         ).permitAll()
-                        // QUY TẮC 3: MỞ CỬA CHO API SEARCH DÙNG METHOD POST
-                        // Chỉ đích danh HTTP Method là POST và đúng URL search
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/v1/plates/search"
                         ).permitAll()
-                        // Các đường còn lại (CRUD Biển số, Danh mục...): Bắt buộc phải có thẻ Session
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                {
+                                    try {
+                                        writeErrorResponse(
+                                                response,
+                                                HttpServletResponse.SC_UNAUTHORIZED,
+                                                "Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn"
+                                        );
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                }
+                        )
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                {
+                                    try {
+                                        writeErrorResponse(
+                                                response,
+                                                HttpServletResponse.SC_FORBIDDEN,
+                                                "Bạn không có quyền truy cập tài nguyên này"
+                                        );
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                }
+                        )
                 );
 
         return http.build();
+    }
+
+    private void writeErrorResponse(HttpServletResponse response,
+                                    int status,
+                                    String message
+    ) throws Exception {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        ErrorResponse errorResponse = new ErrorResponse(status, message);
+        objectMapper.writeValue(response.getWriter(), errorResponse);
     }
 }

@@ -53,7 +53,6 @@ public class Wallet extends BaseEntity {
     public void deposit(BigDecimal amount) {
         validateActive();
         validatePositive(amount);
-
         availableBalance = availableBalance.add(amount);
     }
 
