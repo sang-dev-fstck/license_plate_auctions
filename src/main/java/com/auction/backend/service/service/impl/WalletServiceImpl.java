@@ -37,7 +37,7 @@ public class WalletServiceImpl implements WalletService {
         return walletMapper.toResponse(updatedWallet);
     }
 
-    public Wallet findWalletByEmail() {
+    private Wallet findWalletByEmail() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new AppException("Người dùng chưa đăng nhập");
