@@ -1,5 +1,6 @@
 package com.auction.backend.dto;
 
+import com.auction.backend.enums.VehicleType;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -18,5 +19,5 @@ public class LicensePlateRequest {
 
     // BẮT BUỘC PHẢI CÓ để Utils cắt chuỗi đúng
     // Frontend gửi "CAR" hoặc "MOTORBIKE"
-    private String vehicleType;
+    private VehicleType vehicleType;
 }

@@ -6,6 +6,8 @@ import com.auction.backend.dto.LicensePlateResponse;
 import com.auction.backend.dto.PageResponse;
 import com.auction.backend.dto.PlateSearchRequest;
 import com.auction.backend.entity.LicensePlate;
+import com.auction.backend.enums.LicensePlateStatus;
+import com.auction.backend.enums.VehicleType;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.mapper.LicensePlateMapper;
 import com.auction.backend.repository.LicensePlateRepository;
@@ -36,7 +38,7 @@ public class LicensePlateServiceImpl implements LicensePlateService {
 
     @Override
     public LicensePlateResponse addPlate(LicensePlateRequest plate) {
-        boolean isCar = "CAR".equalsIgnoreCase(plate.getVehicleType());
+        boolean isCar = plate.getVehicleType() == VehicleType.CAR;
         String serial = PlateUtils.extractSerialNumber(plate.getPlateNumber(), isCar);
         String localSymbol = PlateUtils.extractLocalSymbol(plate.getPlateNumber());
         if (serial.isEmpty()) {
@@ -46,9 +48,9 @@ public class LicensePlateServiceImpl implements LicensePlateService {
             throw new AppException("Biển số không hợp lệ !");
         }
         LicensePlate entity = mapper.toEntity(plate);
-        entity.setStatus("AVAILABLE");
+        entity.setStatus(LicensePlateStatus.AVAILABLE);
         // Ép cứng giá khởi điểm mặc định ban đầu là 40 triệu
-        entity.setInitialPrice(new BigDecimal("40000000"));
+        entity.setNextAuctionStartPrice(new BigDecimal("40000000"));
         entity.setSerialNumber(serial);
         entity.setLocalSymbol(localSymbol);
         LicensePlate savedEntity = licensePlateRepository.save(entity);
