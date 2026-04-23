@@ -2,6 +2,7 @@ package com.auction.backend.controller;
 
 import com.auction.backend.dto.CurrentWalletResponse;
 import com.auction.backend.dto.DepositRequest;
+import com.auction.backend.dto.FreezeRequest;
 import com.auction.backend.service.WalletService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,5 +23,10 @@ public class WalletController {
     @PostMapping("/deposit")
     public ResponseEntity<CurrentWalletResponse> deposit(@RequestBody @Valid DepositRequest request) {
         return ResponseEntity.ok(walletService.deposit(request));
+    }
+
+    @PostMapping("/freeze")
+    public ResponseEntity<CurrentWalletResponse> freeze(@RequestBody @Valid FreezeRequest request) {
+        return ResponseEntity.ok(walletService.freeze(request));
     }
 }

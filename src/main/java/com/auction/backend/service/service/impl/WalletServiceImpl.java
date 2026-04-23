@@ -2,6 +2,7 @@ package com.auction.backend.service.service.impl;
 
 import com.auction.backend.dto.CurrentWalletResponse;
 import com.auction.backend.dto.DepositRequest;
+import com.auction.backend.dto.FreezeRequest;
 import com.auction.backend.entity.Account;
 import com.auction.backend.entity.Wallet;
 import com.auction.backend.exception.AppException;
@@ -37,8 +38,19 @@ public class WalletServiceImpl implements WalletService {
         wallet.deposit(depositRequest.getAmount());
         Wallet updatedWallet = walletRepository.save(wallet);
         long end = System.currentTimeMillis();
-            
+
         log.info("Deposit completed in {} ms", (end - start));
+        return walletMapper.toResponse(updatedWallet);
+    }
+
+    @Override
+    public CurrentWalletResponse freeze(FreezeRequest freezeRequest) {
+        long start = System.currentTimeMillis();
+        Wallet wallet = findCurrentWallet();
+        wallet.freeze(freezeRequest.getAmount());
+        Wallet updatedWallet = walletRepository.save(wallet);
+        long end = System.currentTimeMillis();
+        log.info("Freeze completed in {} ms", (end - start));
         return walletMapper.toResponse(updatedWallet);
     }
 
