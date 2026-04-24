@@ -3,65 +3,114 @@ package com.auction.backend.common;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class PlateUtils {
+public final class PlateUtils {
+
+    private static final Pattern NUMERIC_SUFFIX_PATTERN = Pattern.compile("\\d+$");
+
+    private PlateUtils() {
+    }
+
+    private static String clean(String rawInput) {
+        if (rawInput == null || rawInput.isBlank()) {
+            return "";
+        }
+        return rawInput.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+    }
+
+    /**
+     * Trả về serial number dùng cho classify/search.
+     * <p>
+     * Ví dụ:
+     * - CAR: 30A-999.98  -> 99998
+     * - MOTORBIKE new: 29H1-123.45 -> 12345
+     * - MOTORBIKE old: 29H5-9999 -> 9999
+     */
     public static String extractSerialNumber(String rawInput, boolean isCar) {
-        if (rawInput == null || rawInput.isBlank()) return "";
-        // BƯỚC 1: CLEAN DATA
-        // Xóa hết dấu chấm, phẩy, gạch ngang, khoảng trắng...
-        // Chỉ giữ lại Chữ (A-Z) và Số (0-9). Chuyển về chữ hoa.
-        // VD: "30a - 123.45" -> "30A12345
-        if (rawInput.contains("-") || rawInput.contains(".") || rawInput.contains(" ")) {
-            // Tách bằng bất kỳ ký tự nào không phải chữ/số
-            String[] parts = rawInput.split("[^a-zA-Z0-9]+");
-            if (parts.length > 1) {
-                String lastPart = parts[parts.length - 1];
-                // Kiểm tra lại nếu phần cuối toàn là số thì trả về luôn
-                if (lastPart.matches("\\d+")) {
-                    return lastPart;
-                }
-            }
+        String cleanedInput = clean(rawInput);
+        if (cleanedInput.isEmpty()) {
+            return "";
         }
-        String cleanedInput = rawInput.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
-        // BƯỚC 2: Tìm chuỗi số nằm ở cuối cùng (Numeric Suffix)
-        // Regex "\\d+$" nghĩa là tìm các chữ số nằm ở cuối chuỗi
-        Matcher matcher = Pattern.compile("\\d+$").matcher(cleanedInput);
-        if (matcher.find()) {
-            String numberPart = matcher.group();
-            if (isCar) {
-                if (numberPart.length() > 5) {
-                    return numberPart.substring(0, 5);
-                }
-                return numberPart;
-            } else {
-                if (numberPart.length() > 5) {
-                    return numberPart.substring(numberPart.length() - 5);
-                }
-                // Nếu là biển 4 số (Tổng chuỗi số = 5, VD: 5 + 9999)
-                // Đây chính là case 29H5-9999 -> clean thành 29H59999 -> suffix 59999
-                if (numberPart.length() == 5) {
-                    return numberPart.substring(1); // Bỏ số '5' đầu, lấy "9999"
-                }
-                // Các trường hợp còn lại (VD nhập thiếu, biển cũ quá) -> giữ nguyên
-                return numberPart;
-            }
+
+        Matcher matcher = NUMERIC_SUFFIX_PATTERN.matcher(cleanedInput);
+        if (!matcher.find()) {
+            return "";
         }
+
+        String numberPart = matcher.group();
+
+        if (isCar) {
+            // Biển ô tô chuẩn hiện tại: serial 5 số
+            if (numberPart.length() < 5) {
+                return "";
+            }
+            return numberPart.substring(numberPart.length() - 5);
+        }
+
+        // Xe máy:
+        // - biển mới: suffix có thể là 6 số, lấy 5 số cuối
+        // - biển cũ: suffix 5 số kiểu 5 + 9999, bỏ số đầu để lấy 4 số cuối
+        if (numberPart.length() > 5) {
+            return numberPart.substring(numberPart.length() - 5);
+        }
+
+        if (numberPart.length() == 5) {
+            return numberPart.substring(1); // 29H5-9999 -> 9999
+        }
+
+        if (numberPart.length() == 4) {
+            return numberPart;
+        }
+
         return "";
     }
 
     /**
-     * Tách mã tỉnh (Province Code)
-     * Input: "30A-12345" -> Output: "30"
+     * Normalize để lưu DB theo format đẹp/canonical.
+     * <p>
+     * Ví dụ:
+     * - 30a99998      -> 30A-999.98
+     * - 30A - 999.98  -> 30A-999.98
+     * - 29h112345     -> 29H1-123.45
+     * - 29H5-9999     -> 29H5-9999
      */
-    public static String extractLocalSymbol(String rawInput) {
-        if (rawInput == null || rawInput.isBlank()) return "";
-        String cleanedInput = rawInput.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
-        if (cleanedInput.length() >= 2) {
-            String prefix = cleanedInput.substring(0, 2);
-            // Kiểm tra xem 2 ký tự đầu có phải là số không (tránh trường hợp user nhập tào lao)
-            if (prefix.matches("\\d+")) {
-                return prefix;
-            }
+    public static String normalizePlateNumber(String rawInput, boolean isCar) {
+        String cleanedInput = clean(rawInput);
+        if (cleanedInput.isEmpty()) {
+            return "";
         }
+
+        String serialNumber = extractSerialNumber(cleanedInput, isCar);
+        if (serialNumber.isEmpty()) {
+            return "";
+        }
+
+        String prefix = cleanedInput.substring(0, cleanedInput.length() - serialNumber.length());
+        if (prefix.isEmpty()) {
+            return "";
+        }
+
+        if (serialNumber.length() == 5) {
+            return prefix + "-" + serialNumber.substring(0, 3) + "." + serialNumber.substring(3);
+        }
+
+        if (serialNumber.length() == 4) {
+            return prefix + "-" + serialNumber;
+        }
+
         return "";
+    }
+
+    /**
+     * Thực ra method cũ của bạn đang trả về province code, không phải local symbol.
+     * Ví dụ: 30A-999.98 -> 30
+     */
+    public static String extractProvinceCode(String rawInput) {
+        String cleanedInput = clean(rawInput);
+        if (cleanedInput.length() < 2) {
+            return "";
+        }
+
+        String prefix = cleanedInput.substring(0, 2);
+        return prefix.matches("\\d{2}") ? prefix : "";
     }
 }

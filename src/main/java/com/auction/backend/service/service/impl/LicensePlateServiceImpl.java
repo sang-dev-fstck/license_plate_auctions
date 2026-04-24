@@ -14,6 +14,7 @@ import com.auction.backend.repository.LicensePlateRepository;
 import com.auction.backend.repository.custom.LicensePlateCustomRepository;
 import com.auction.backend.service.LicensePlateService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LicensePlateServiceImpl implements LicensePlateService {
@@ -40,19 +42,17 @@ public class LicensePlateServiceImpl implements LicensePlateService {
     public LicensePlateResponse addPlate(LicensePlateRequest plate) {
         boolean isCar = plate.getVehicleType() == VehicleType.CAR;
         String serial = PlateUtils.extractSerialNumber(plate.getPlateNumber(), isCar);
-        String localSymbol = PlateUtils.extractLocalSymbol(plate.getPlateNumber());
-        if (serial.isEmpty()) {
-            throw new AppException("Biển số không hợp lệ !");
-        }
-        if (localSymbol.isEmpty()) {
-            throw new AppException("Biển số không hợp lệ !");
+        String provinceCode = PlateUtils.extractProvinceCode(plate.getPlateNumber());
+        if (serial.isEmpty() || provinceCode.isEmpty()) {
+            throw new AppException("Biển số không hợp lệ!");
         }
         LicensePlate entity = mapper.toEntity(plate);
+        entity.setPlateNumber(PlateUtils.normalizePlateNumber(plate.getPlateNumber(), isCar));
         entity.setStatus(LicensePlateStatus.AVAILABLE);
         // Ép cứng giá khởi điểm mặc định ban đầu là 40 triệu
         entity.setNextAuctionStartPrice(new BigDecimal("40000000"));
         entity.setSerialNumber(serial);
-        entity.setLocalSymbol(localSymbol);
+        entity.setProvinceId(provinceCode); // nếu business của bạn đúng là mã tỉnh
         LicensePlate savedEntity = licensePlateRepository.save(entity);
         return mapper.toResponse(savedEntity);
     }
