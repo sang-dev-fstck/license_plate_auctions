@@ -8,13 +8,15 @@ import com.auction.backend.mapper.CategoryMapper;
 import com.auction.backend.repository.CategoryRepository;
 import com.auction.backend.service.CategoryService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor // <--- Tự động tạo Constructor cho các biến final
+@RequiredArgsConstructor
+@Slf4j// <--- Tự động tạo Constructor cho các biến final
 public class CategoryServiceImpl implements CategoryService {
     private final CategoryRepository cateRepo;
     private final CategoryMapper mapper;
@@ -28,11 +30,13 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public CategoryResponse addNewCategory(CategoryRequest category) {
-        if (cateRepo.existsByCategoryName(category.getCategoryName())) {
-            throw new RuntimeException("Category '" + category.getCategoryName() + "' đã tồn tại!");
-        }
+//        if (cateRepo.existsByCategoryName(category.getCategoryName())) {
+//            throw new RuntimeException("Category '" + category.getCategoryName() + "' đã tồn tại!");
+//        }
         Category entity = mapper.toEntity(category);
+        entity.setActive(true);
         cateRepo.save(entity);
+        log.info(category.getSpecial().toString());
         return mapper.toResponse(entity);
     }
 
@@ -40,15 +44,11 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryResponse updateCategory(String id, UpdateCategoryRequest category) {
         Category existingCategory = cateRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy category với ID: " + id));
-        Category oldSnapshot = mapper.cloneEntity(existingCategory);
         if (!existingCategory.getCategoryName().equals(category.getCategoryName())
                 && cateRepo.existsByCategoryName(category.getCategoryName())) {
             throw new RuntimeException("Category '" + category.getCategoryName() + "' đã bị sử dụng bởi một category khác!");
         }
         mapper.updateEntityFromRequest(category, existingCategory);
-        if (existingCategory.equals(oldSnapshot)) {
-            return mapper.toResponse(existingCategory);
-        }
         Category savedCategory = cateRepo.save(existingCategory);
         return mapper.toResponse(savedCategory);
     }

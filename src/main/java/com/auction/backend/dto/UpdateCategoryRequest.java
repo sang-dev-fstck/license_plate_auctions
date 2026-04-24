@@ -1,5 +1,6 @@
 package com.auction.backend.dto;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -23,4 +24,6 @@ public class UpdateCategoryRequest {
     // Chuyển kiểu nguyên thủy 'boolean' thành Object 'Boolean'.
     // Bỏ giá trị mặc định '= true' để nó nhận null khi không được gửi lên.
     private Boolean special;
+    @Min(value = 0, message = "Cant be 0")
+    private Integer priority;
 }

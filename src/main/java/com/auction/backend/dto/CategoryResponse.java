@@ -12,4 +12,5 @@ public class CategoryResponse {
     private String categoryName;
     private String regex;
     private Boolean special;
+    private Integer priority;
 }

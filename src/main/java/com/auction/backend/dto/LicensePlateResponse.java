@@ -18,7 +18,7 @@ public class LicensePlateResponse {
     private String plateNumber;
     private String provinceName;
     private String categoryName; // Chỉ hiện tên loại, không cần hiện ID
-    private BigDecimal nextAuctionStartingPrice;
+    private BigDecimal nextAuctionStartPrice;
     private LicensePlateStatus status;
     private List<String> tags;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd/MM/yyyy HH:mm:ss")
