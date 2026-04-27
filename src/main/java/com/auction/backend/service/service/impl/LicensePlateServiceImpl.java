@@ -1,10 +1,7 @@
 package com.auction.backend.service.service.impl;
 
 import com.auction.backend.common.PlateUtils;
-import com.auction.backend.dto.LicensePlateRequest;
-import com.auction.backend.dto.LicensePlateResponse;
-import com.auction.backend.dto.PageResponse;
-import com.auction.backend.dto.PlateSearchRequest;
+import com.auction.backend.dto.*;
 import com.auction.backend.entity.LicensePlate;
 import com.auction.backend.entity.Province;
 import com.auction.backend.enums.LicensePlateStatus;
@@ -14,6 +11,7 @@ import com.auction.backend.mapper.LicensePlateMapper;
 import com.auction.backend.repository.LicensePlateRepository;
 import com.auction.backend.repository.ProvinceRepository;
 import com.auction.backend.repository.custom.LicensePlateCustomRepository;
+import com.auction.backend.service.LicensePlateClassificationService;
 import com.auction.backend.service.LicensePlateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +30,7 @@ public class LicensePlateServiceImpl implements LicensePlateService {
     private final LicensePlateCustomRepository customRepository;
     private final LicensePlateMapper mapper;
     private final ProvinceRepository provinceRepository;
+    private final LicensePlateClassificationService classificationService;
 
     @Override
     public List<LicensePlateResponse> getAllPlates() {
@@ -46,19 +45,31 @@ public class LicensePlateServiceImpl implements LicensePlateService {
         boolean isCar = plate.getVehicleType() == VehicleType.CAR;
         String serial = PlateUtils.extractSerialNumber(plate.getPlateNumber(), isCar);
         String localSymbols = PlateUtils.extractProvinceCode(plate.getPlateNumber());
+
         if (serial.isEmpty() || localSymbols.isEmpty()) {
             throw new AppException("Biển số không hợp lệ!");
         }
+
         Province province = provinceRepository.findFirstByLocalSymbolsContaining(localSymbols)
                 .orElseThrow(() -> new AppException("Province not found!"));
+
+        PlateClassificationResult classificationResult = classificationService.classify(serial);
+
         LicensePlate entity = mapper.toEntity(plate);
+
         entity.setPlateNumber(PlateUtils.normalizePlateNumber(plate.getPlateNumber(), isCar));
         entity.setStatus(LicensePlateStatus.AVAILABLE);
         // Ép cứng giá khởi điểm mặc định ban đầu là 40 triệu
         entity.setNextAuctionStartPrice(new BigDecimal("40000000"));
         entity.setSerialNumber(serial);
+
         entity.setProvinceId(province.getId());
         entity.setProvinceName(province.getProvinceName());// nếu business của bạn đúng là mã tỉnh
+
+        entity.setCategoryId(classificationResult.getCategoryId());
+        entity.setCategoryName(classificationResult.getCategoryName());
+        entity.setTags(classificationResult.getTags());
+        
         LicensePlate savedEntity = licensePlateRepository.save(entity);
         return mapper.toResponse(savedEntity);
     }

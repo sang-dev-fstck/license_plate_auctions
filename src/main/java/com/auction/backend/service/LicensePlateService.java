@@ -14,4 +14,6 @@ public interface LicensePlateService {
     LicensePlateResponse addPlate(LicensePlateRequest plate);
 
     PageResponse<LicensePlateResponse> searchPlates(PlateSearchRequest request);
+
+
 }

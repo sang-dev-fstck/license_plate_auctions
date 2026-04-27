@@ -26,4 +26,14 @@ public class Category extends BaseEntity {
     private Boolean special;
 
     private Integer priority;
+
+    public static Category create(String categoryName, String regex, Boolean special, Integer priority) {
+        return Category.builder()
+                .categoryName(categoryName)
+                .regex(regex)
+                .special(special)
+                .priority(priority)
+                .active(true)
+                .build();
+    }
 }
