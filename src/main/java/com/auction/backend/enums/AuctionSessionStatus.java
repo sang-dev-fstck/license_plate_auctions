@@ -1,11 +1,10 @@
 package com.auction.backend.enums;
 
 public enum AuctionSessionStatus {
-    DRAFT,
     SCHEDULED,
     ACTIVE,
     PAUSED,
     ENDED,
+    FAILED,
     CANCELLED,
-    FAILED
 }

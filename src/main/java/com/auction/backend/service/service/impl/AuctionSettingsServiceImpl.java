@@ -43,7 +43,7 @@ public class AuctionSettingsServiceImpl implements AuctionSettingsService {
 
     @Override
     public AuctionSettingsResponse addAuctionSetting(AuctionSettingsRequest request) {
-        if (auctionSettingsRepository.existsByVehicleType(request.getVehicleType())) {
+        if (auctionSettingsRepository.existsByVehicleTypeAndActiveTrue(request.getVehicleType())) {
             throw new AppException("Setting cho loại xe này đã tồn tại");
         }
         AuctionSettings auctionSettings = auctionSettingsMapper.toEntity(request);

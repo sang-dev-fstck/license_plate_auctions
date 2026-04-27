@@ -24,6 +24,4 @@ public interface AuctionSettingsMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntityFromRequest(UpdateAuctionSettingsRequest request, @MappingTarget AuctionSettings entity);
-
-    AuctionSettings cloneEntity(AuctionSettings entity);
 }

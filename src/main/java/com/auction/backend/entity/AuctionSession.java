@@ -24,12 +24,13 @@ public class AuctionSession extends BaseEntity {
     private String id;
 
     @Indexed
-    private String plateId;
+    private String licensePlateId;
+
+    private String licensePlateNumber;
 
     private String auctionSettingId;
 
     private LocalDateTime startTime;
-
     private LocalDateTime endTime;
 
     private AuctionSessionStatus status;
@@ -40,11 +41,15 @@ public class AuctionSession extends BaseEntity {
     @Field(targetType = FieldType.DECIMAL128)
     private BigDecimal currentPrice;
 
-    private String currentLeaderAccountId;
+    @Field(targetType = FieldType.DECIMAL128)
+    private BigDecimal bidStepAmountSnapshot;
 
+    private String currentLeaderAccountId;
     private String winnerAccountId;
 
+    private String pauseReason;
     private String failureReason;
+    private String cancelReason;
 
     @Version
     private Long version;
