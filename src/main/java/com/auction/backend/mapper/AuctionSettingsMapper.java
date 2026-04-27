@@ -1,16 +1,16 @@
 package com.auction.backend.mapper;
 
-import com.auction.backend.dto.TagRuleRequest;
-import com.auction.backend.dto.TagRuleResponse;
-import com.auction.backend.dto.UpdateTagRuleRequest;
-import com.auction.backend.entity.TagRule;
+import com.auction.backend.dto.AuctionSettingsRequest;
+import com.auction.backend.dto.AuctionSettingsResponse;
+import com.auction.backend.dto.UpdateAuctionSettingsRequest;
+import com.auction.backend.entity.AuctionSettings;
 import org.mapstruct.*;
 
 @Mapper(componentModel = "spring")
-public interface TagRuleMapper {
-    TagRule toEntity(TagRuleRequest request);
+public interface AuctionSettingsMapper {
+    AuctionSettings toEntity(AuctionSettingsRequest request);
 
-    TagRuleResponse toResponse(TagRule entity);
+    AuctionSettingsResponse toResponse(AuctionSettings entity);
 
     // THÊM HÀM NÀY CHO API UPDATE
     // Nó sẽ lấy dữ liệu từ 'request' và ghi đè thẳng vào 'entity'
@@ -23,5 +23,5 @@ public interface TagRuleMapper {
     // Nếu entity của bạn có các trường Audit (ngày tạo, người tạo), cũng nên ignore luôn:
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
-    void updateEntityFromRequest(UpdateTagRuleRequest request, @MappingTarget TagRule entity);
+    void updateEntityFromRequest(UpdateAuctionSettingsRequest request, @MappingTarget AuctionSettings entity);
 }

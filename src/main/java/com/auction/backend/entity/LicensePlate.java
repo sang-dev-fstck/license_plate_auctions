@@ -1,5 +1,7 @@
 package com.auction.backend.entity;
 
+import com.auction.backend.enums.LicensePlateStatus;
+import com.auction.backend.enums.VehicleType;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -8,6 +10,8 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,30 +40,20 @@ public class LicensePlate extends BaseEntity {
 
     // Các trường này đã nằm trong Compound Index nên có thể bỏ @Indexed đơn lẻ
     // để tiết kiệm tài nguyên ghi (Write Performance).
-    @EqualsAndHashCode.Include
     private String provinceId;
-    @EqualsAndHashCode.Include
     private String provinceName;
 
-    @EqualsAndHashCode.Include
     private String categoryId;
-    @EqualsAndHashCode.Include
     private String categoryName;
-    @EqualsAndHashCode.Include
-    private BigDecimal initialPrice;
-    @EqualsAndHashCode.Include
+    @Field(targetType = FieldType.DECIMAL128)
+    private BigDecimal nextAuctionStartPrice;
     private String localSymbol;
-    @EqualsAndHashCode.Include
     private String serialLetter;
 
     // Search đích danh số đẹp (VD: 55555) -> Vẫn nên giữ Single Index
     @Indexed
-    @EqualsAndHashCode.Include
     private String serialNumber;
-    @EqualsAndHashCode.Include
-    private String status;
-    @EqualsAndHashCode.Include
-    private String vehicleType;
-    @EqualsAndHashCode.Include
+    private LicensePlateStatus status;
+    private VehicleType vehicleType;
     private List<String> tags;
 }
