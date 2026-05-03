@@ -62,7 +62,8 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/v1/plates",
                                 "/api/v1/categories",
-                                "/api/v1/tag-rules"
+                                "/api/v1/tag-rules",
+                                "/api/v1/auction-sessions/customer"
                         ).permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/v1/plates/search"
