@@ -2,6 +2,7 @@ package com.auction.backend.service.service.impl;
 
 import com.auction.backend.dto.AuctionSessionResponse;
 import com.auction.backend.dto.CreateAuctionSessionRequest;
+import com.auction.backend.dto.CustomerAuctionSessionResponse;
 import com.auction.backend.entity.AuctionSession;
 import com.auction.backend.entity.AuctionSettings;
 import com.auction.backend.entity.LicensePlate;
@@ -79,6 +80,38 @@ public class AuctionSessionServiceImpl implements AuctionSessionService {
         log.info("Created auctionSessionId={} for plateId={}", savedSession.getId(), plate.getId());
         return auctionSessionMapper.toResponse(savedSession);
     }
+
+    @Override
+    public List<CustomerAuctionSessionResponse> getCustomerSessions() {
+        List<AuctionSession> sessions = auctionSessionRepository.findByStatusInOrderByStartTimeAsc(
+                List.of(
+                        AuctionSessionStatus.ACTIVE,
+                        AuctionSessionStatus.PAUSED,
+                        AuctionSessionStatus.SCHEDULED
+                )
+        );
+
+        return sessions.stream()
+                .map(session -> {
+                    LicensePlate plate = licensePlateRepository.findById(session.getLicensePlateId())
+                            .orElse(null);
+
+                    return CustomerAuctionSessionResponse.builder()
+                            .id(session.getId())
+                            .licensePlateNumber(session.getLicensePlateNumber())
+                            .categoryName(plate != null ? plate.getCategoryName() : null)
+                            .tags(plate != null ? plate.getTags() : List.of())
+                            .startTime(session.getStartTime())
+                            .endTime(session.getEndTime())
+                            .status(session.getStatus())
+                            .startingPrice(session.getStartingPrice())
+                            .currentPrice(session.getCurrentPrice())
+                            .bidStepAmountSnapshot(session.getBidStepAmountSnapshot())
+                            .build();
+                })
+                .toList();
+    }
+
 
     private void checkTime(LocalDateTime startTime, LocalDateTime endTime) {
         LocalDateTime now = LocalDateTime.now();
