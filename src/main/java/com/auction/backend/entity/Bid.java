@@ -1,6 +1,6 @@
 package com.auction.backend.entity;
 
-import com.auction.backend.enums.ParticipationStatus;
+import com.auction.backend.enums.BidStatus;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
@@ -10,28 +10,25 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.math.BigDecimal;
 
-@Document(collection = "auction_participations")
+@Document(collection = "bids")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AuctionParticipation extends BaseEntity {
+public class Bid extends BaseEntity {
 
     @Id
     private String id;
 
     private String auctionSessionId;
-
-    private String accountId;
-
-    @Field(targetType = FieldType.DECIMAL128)
-    private BigDecimal depositAmount;
+    
+    private String bidderAccountId;
 
     @Field(targetType = FieldType.DECIMAL128)
-    private BigDecimal lastBidAmount;
+    private BigDecimal amount;
 
-    private ParticipationStatus status;
+    private BidStatus status;
 
     @Version
     private Long version;
