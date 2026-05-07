@@ -113,6 +113,43 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
         throw new AppException("Không thể cập nhật trạng thái fail của phiên đấu giá");
     }
 
+    @Override
+    public AuctionSessionResponse endSession(String sessionId) {
+        LocalDateTime now = LocalDateTime.now();
+        AuctionSession validSession = getSessionBySessionId(sessionId);
+        LicensePlate validPlate = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
+        AuctionSessionStatus initialStatus = validSession.getStatus();
+        LicensePlateStatus initialPlateStatus = validPlate.getStatus();
+        String currentLeaderId = validSession.getCurrentLeaderAccountId();
+
+        if (validSession.getStatus().equals(AuctionSessionStatus.ACTIVE)
+                && !now.isBefore(validSession.getEndTime())) {
+            validSession.setStatus(AuctionSessionStatus.ENDED);
+
+            if (currentLeaderId == null) {
+                validPlate.setStatus(LicensePlateStatus.AVAILABLE);
+            } else {
+                validPlate.setStatus(LicensePlateStatus.SOLD);
+            }
+            
+            try {
+                AuctionSession savedSession = auctionSessionRepository.save(validSession);
+                licensePlateRepository.save(validPlate);
+                return auctionSessionMapper.toResponse(savedSession);
+            } catch (Exception e) {
+                try {
+                    validSession.setStatus(initialStatus);
+                    validPlate.setStatus(initialPlateStatus);
+                    auctionSessionRepository.save(validSession);
+                    licensePlateRepository.save(validPlate);
+                } catch (Exception ex) {
+                    log.error("Failed to rollback :{}", ex.getMessage());
+                }
+            }
+        }
+        throw new AppException("Không thể kết thúc phiên đấu giá");
+    }
+
     private AuctionSession getSessionBySessionId(String sessionId) {
         AuctionSession session = auctionSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new AppException("Phiên đấu giá không tồn tại"));

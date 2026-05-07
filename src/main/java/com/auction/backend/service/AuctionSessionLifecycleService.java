@@ -9,4 +9,6 @@ public interface AuctionSessionLifecycleService {
     AuctionSessionResponse pauseOrResumeSession(String sessionId, SessionLifecycleRequest request);
 
     AuctionSessionResponse failSession(String sessionId, SessionLifecycleRequest request);
+
+    AuctionSessionResponse endSession(String sessionId);
 }

@@ -52,4 +52,11 @@ public class AuctionSessionController {
     ) {
         return ResponseEntity.ok(auctionSessionLifecycleService.failSession(id, request));
     }
+
+    @PatchMapping("/{id}/end")
+    public ResponseEntity<AuctionSessionResponse> endSession(
+            @PathVariable String id
+    ) {
+        return ResponseEntity.ok(auctionSessionLifecycleService.endSession(id));
+    }
 }
