@@ -69,17 +69,7 @@ public class BidServiceImpl implements BidService {
 
                 Bid bid = saveBidAndUpdateSession(request, user, session);
                 participation.setStatus(ParticipationStatus.CONSUMED);
-                participation.setLastBidAmount(request.getAmount());
-                auctionParticipationRepository.save(participation);
-
-                return PlaceBidResponse.builder()
-                        .bidId(bid.getId())
-                        .licensePlateNumber(session.getLicensePlateNumber())
-                        .bidAmount(request.getAmount())
-                        .message("Đặt giá thành công với giá " + MoneyUtils.format(request.getAmount()) + "VNĐ")
-                        .currentPrice(request.getAmount())
-                        .auctionSessionId(session.getId())
-                        .build();
+                return getBidResponse(request, session, participation, bid);
             } catch (Exception e) {
                 try {
 
@@ -150,9 +140,7 @@ public class BidServiceImpl implements BidService {
         }
     }
 
-    private PlaceBidResponse getPlaceBidResponse(PlaceBidRequest request, Account user, AuctionSession session, AuctionParticipation participation) {
-        Bid bid = saveBidAndUpdateSession(request, user, session);
-
+    private PlaceBidResponse getBidResponse(PlaceBidRequest request, AuctionSession session, AuctionParticipation participation, Bid bid) {
         participation.setLastBidAmount(request.getAmount());
         auctionParticipationRepository.save(participation);
 
@@ -160,10 +148,17 @@ public class BidServiceImpl implements BidService {
                 .bidId(bid.getId())
                 .licensePlateNumber(session.getLicensePlateNumber())
                 .bidAmount(request.getAmount())
+                .endTime(session.getEndTime())
                 .message("Đặt giá thành công với giá " + MoneyUtils.format(request.getAmount()) + "VNĐ")
                 .currentPrice(request.getAmount())
                 .auctionSessionId(session.getId())
                 .build();
+    }
+
+    private PlaceBidResponse getPlaceBidResponse(PlaceBidRequest request, Account user, AuctionSession session, AuctionParticipation participation) {
+        Bid bid = saveBidAndUpdateSession(request, user, session);
+
+        return getBidResponse(request, session, participation, bid);
     }
 
     private Bid saveBidAndUpdateSession(PlaceBidRequest request, Account user, AuctionSession session) {
@@ -173,8 +168,10 @@ public class BidServiceImpl implements BidService {
                 .bidderAccountId(user.getId())
                 .status(BidStatus.PLACED)
                 .build();
+        LocalDateTime newEndTime = calculateNewEndTime(session, request.getAmount());
         session.setCurrentPrice(request.getAmount());
         session.setCurrentLeaderAccountId(user.getId());
+        session.setEndTime(newEndTime);
         auctionSessionRepository.save(session);
         return bidRepository.save(bid);
     }
@@ -230,5 +227,15 @@ public class BidServiceImpl implements BidService {
 
     private boolean isCurrentLeader(AuctionSession session, Account user) {
         return session.getCurrentLeaderAccountId() != null && session.getCurrentLeaderAccountId().equals(user.getId());
+    }
+
+    private LocalDateTime calculateNewEndTime(AuctionSession session, BigDecimal newBidAmount) {
+        LocalDateTime now = LocalDateTime.now();
+        BigDecimal oldCurrentPrice = session.getCurrentPrice();
+        if (newBidAmount.compareTo(oldCurrentPrice.multiply(BigDecimal.TEN)) >= 0) {
+            return now.plusMinutes(1);
+        } else {
+            return session.getEndTime().plusMinutes(5);
+        }
     }
 }

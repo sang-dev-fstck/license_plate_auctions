@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Getter
 @AllArgsConstructor
@@ -16,4 +17,5 @@ public class PlaceBidResponse {
     private BigDecimal bidAmount;
     private BigDecimal currentPrice;
     private String message;
+    private LocalDateTime endTime;
 }
