@@ -2,15 +2,20 @@ package com.auction.backend.service.service.impl;
 
 import com.auction.backend.dto.AuctionSessionResponse;
 import com.auction.backend.dto.SessionLifecycleRequest;
+import com.auction.backend.entity.AuctionParticipation;
 import com.auction.backend.entity.AuctionSession;
 import com.auction.backend.entity.LicensePlate;
+import com.auction.backend.entity.Wallet;
 import com.auction.backend.enums.AuctionSessionStatus;
 import com.auction.backend.enums.LicensePlateStatus;
+import com.auction.backend.enums.ParticipationStatus;
 import com.auction.backend.enums.VehicleType;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.mapper.AuctionSessionMapper;
+import com.auction.backend.repository.AuctionParticipationRepository;
 import com.auction.backend.repository.AuctionSessionRepository;
 import com.auction.backend.repository.LicensePlateRepository;
+import com.auction.backend.repository.WalletRepository;
 import com.auction.backend.service.AuctionSessionLifecycleService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +24,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +34,8 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     private final AuctionSessionRepository auctionSessionRepository;
     private final AuctionSessionMapper auctionSessionMapper;
     private final LicensePlateRepository licensePlateRepository;
+    private final WalletRepository walletRepository;
+    private final AuctionParticipationRepository auctionParticipationRepository;
 
     @Override
     public AuctionSessionResponse activateSession(String sessionId) {
@@ -118,36 +127,72 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
         LicensePlate validPlate = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
-        AuctionSessionStatus initialStatus = validSession.getStatus();
-        LicensePlateStatus initialPlateStatus = validPlate.getStatus();
         String currentLeaderId = validSession.getCurrentLeaderAccountId();
+        List<AuctionParticipation> participations = getAllParticipations(validSession.getId());
 
-        if (validSession.getStatus().equals(AuctionSessionStatus.ACTIVE)
-                && !now.isBefore(validSession.getEndTime())) {
-            validSession.setStatus(AuctionSessionStatus.ENDED);
+        if (!validSession.getStatus().equals(AuctionSessionStatus.ACTIVE)
+                || now.isBefore(validSession.getEndTime())) {
+            throw new AppException("Không thể kết thúc phiên đấu giá");
+        }
 
-            if (currentLeaderId == null) {
-                validPlate.setStatus(LicensePlateStatus.AVAILABLE);
-            } else {
-                validPlate.setStatus(LicensePlateStatus.SOLD);
-            }
-            
-            try {
-                AuctionSession savedSession = auctionSessionRepository.save(validSession);
-                licensePlateRepository.save(validPlate);
-                return auctionSessionMapper.toResponse(savedSession);
-            } catch (Exception e) {
-                try {
-                    validSession.setStatus(initialStatus);
-                    validPlate.setStatus(initialPlateStatus);
-                    auctionSessionRepository.save(validSession);
-                    licensePlateRepository.save(validPlate);
-                } catch (Exception ex) {
-                    log.error("Failed to rollback :{}", ex.getMessage());
+        validSession.setStatus(AuctionSessionStatus.ENDED);
+
+        List<Wallet> walletsToSave = new ArrayList<>();
+        List<AuctionParticipation> participationsToSave = new ArrayList<>();
+
+        if (currentLeaderId == null) {
+            validPlate.setStatus(LicensePlateStatus.AVAILABLE);
+
+            for (AuctionParticipation participation : participations) {
+                if (participation.getStatus().equals(ParticipationStatus.CONSUMED)) {
+                    throw new AppException("Data inconsistency !!!");
                 }
+
+                checkParticipationStatus(walletsToSave, participationsToSave, participation);
+            }
+        } else {
+            validPlate.setStatus(LicensePlateStatus.SOLD);
+            validSession.setWinnerAccountId(currentLeaderId);
+
+            Wallet winnerWallet = getWinnerWallet(currentLeaderId);
+            winnerWallet.debitFrozen(validSession.getCurrentPrice());
+            walletsToSave.add(winnerWallet);
+
+            for (AuctionParticipation participation : participations) {
+                if (currentLeaderId.equals(participation.getAccountId())) {
+                    continue;
+                }
+
+                checkParticipationStatus(walletsToSave, participationsToSave, participation);
             }
         }
-        throw new AppException("Không thể kết thúc phiên đấu giá");
+
+        try {
+            walletRepository.saveAll(walletsToSave);
+
+            auctionParticipationRepository.saveAll(participationsToSave);
+
+            licensePlateRepository.save(validPlate);
+            AuctionSession savedSession = auctionSessionRepository.save(validSession);
+
+            return auctionSessionMapper.toResponse(savedSession);
+        } catch (Exception e) {
+            log.error("Failed to settle endSession for sessionId={}", validSession.getId(), e);
+            throw new AppException("Không thể kết thúc phiên đấu giá");
+        }
+    }
+
+    private void checkParticipationStatus(List<Wallet> walletsToSave, List<AuctionParticipation> participationsToSave, AuctionParticipation participation) {
+        if (participation.getStatus().equals(ParticipationStatus.RESERVED)) {
+            Wallet wallet = walletRepository.findByAccountId(participation.getAccountId())
+                    .orElseThrow(() -> new AppException("Không tìm thấy ví"));
+
+            wallet.unfreeze(participation.getDepositAmount());
+            walletsToSave.add(wallet);
+
+            participation.setStatus(ParticipationStatus.REFUNDED);
+            participationsToSave.add(participation);
+        }
     }
 
     private AuctionSession getSessionBySessionId(String sessionId) {
@@ -175,5 +220,14 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             throw new AppException("Phiên đấu giá đã kết thúc");
         }
         return remainingTime;
+    }
+
+    private Wallet getWinnerWallet(String accountId) {
+        return walletRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new AppException("Không tìm thấy ví của người chiến thắng phiên đấu giá"));
+    }
+
+    private List<AuctionParticipation> getAllParticipations(String auctionSessionId) {
+        return auctionParticipationRepository.findByAuctionSessionId(auctionSessionId);
     }
 }
