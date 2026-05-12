@@ -39,7 +39,7 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
                         Account::getId,
                         Function.identity()
                 ));
-        
+
         Account leader = accountMap.get(session.getCurrentLeaderAccountId());
 
         Account winner = accountMap.get(session.getWinnerAccountId());
@@ -55,9 +55,9 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
                 .currentPrice(session.getCurrentPrice())
                 .bidStepAmountSnapshot(session.getBidStepAmountSnapshot())
                 .currentLeaderAccountId(session.getCurrentLeaderAccountId())
-                .currentLeaderName(leader.getFullName() != null ? leader.getFullName() : "Unknown User")
+                .currentLeaderName(leader != null ? leader.getFullName() : "Unknown User")
                 .winnerAccountId(session.getWinnerAccountId())
-                .winnerName(winner.getFullName() != null ? winner.getFullName() : "Unknown User")
+                .winnerName(winner != null ? winner.getFullName() : "Unknown User")
                 .pauseReason(session.getPauseReason())
                 .failureReason(session.getFailureReason())
                 .build();
