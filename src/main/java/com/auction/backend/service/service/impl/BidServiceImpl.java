@@ -166,6 +166,7 @@ public class BidServiceImpl implements BidService {
                 .auctionSessionId(session.getId())
                 .amount(request.getAmount())
                 .bidderAccountId(user.getId())
+                .bidderFullNameSnapshot(user.getFullName())
                 .status(BidStatus.PLACED)
                 .build();
         LocalDateTime newEndTime = calculateNewEndTime(session, request.getAmount());

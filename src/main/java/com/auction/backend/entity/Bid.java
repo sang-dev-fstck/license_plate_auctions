@@ -22,8 +22,9 @@ public class Bid extends BaseEntity {
     private String id;
 
     private String auctionSessionId;
-    
+
     private String bidderAccountId;
+    private String bidderFullNameSnapshot;
 
     @Field(targetType = FieldType.DECIMAL128)
     private BigDecimal amount;

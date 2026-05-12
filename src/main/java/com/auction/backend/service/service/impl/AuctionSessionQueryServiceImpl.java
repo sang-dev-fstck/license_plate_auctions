@@ -67,32 +67,17 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
     public List<BidHistoryItemResponse> getBidHistory(String sessionId) {
         AuctionSession session = getSession(sessionId);
         List<Bid> bids = bidRepository.findByAuctionSessionIdOrderByCreatedAtDesc(session.getId());
-
-        Set<String> accountIds = bids.stream()
-                .map(Bid::getBidderAccountId)
-                .collect(Collectors.toSet());
-
-        Map<String, Account> accountMap = accountRepository.findByIdIn(accountIds)
-                .stream()
-                .collect(Collectors.toMap(
-                        Account::getId,
-                        Function.identity()
-                ));
-
         return bids.stream()
-                .map(bid -> {
-                    Account account = accountMap.get(bid.getBidderAccountId());
-                    return BidHistoryItemResponse.builder()
-                            .bidId(bid.getId())
-                            .bidderAccountId(bid.getBidderAccountId())
-                            .bidderName(account != null
-                                    ? account.getFullName()
-                                    : "Unknown User")
-                            .amount(bid.getAmount())
-                            .status(bid.getStatus())
-                            .createdAt(bid.getCreatedAt())
-                            .build();
-                })
+                .map(bid -> BidHistoryItemResponse.builder()
+                        .bidId(bid.getId())
+                        .bidderAccountId(bid.getBidderAccountId())
+                        .bidderName(bid.getBidderFullNameSnapshot() != null
+                                ? bid.getBidderFullNameSnapshot()
+                                : "Unknown User")
+                        .amount(bid.getAmount())
+                        .status(bid.getStatus())
+                        .createdAt(bid.getCreatedAt())
+                        .build())
                 .collect(Collectors.toList());
     }
 
