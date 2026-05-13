@@ -25,8 +25,8 @@ public class AuctionSessionReadRepositoryImpl implements AuctionSessionReadRepos
                 unwindCurrentLeader(),
                 lookupWinner(),
                 unwindWinner(),
-                lookupPlateNumber(),
-                unwindPlateNumber(),
+                lookupLicensePlate(),
+                unwindLicensePlate(),
                 projectSessionDetail()
         );
         AggregationResults<AuctionSessionDetailReadModel> results =
@@ -103,7 +103,7 @@ public class AuctionSessionReadRepositoryImpl implements AuctionSessionReadRepos
     }
 
 
-    private AggregationOperation lookupPlateNumber() {
+    private AggregationOperation lookupLicensePlate() {
         return raw(new Document("$lookup",
                 new Document("from", "license_plates")
                         .append("let", new Document("plateNumberId", "$licensePlateId"))
@@ -127,7 +127,7 @@ public class AuctionSessionReadRepositoryImpl implements AuctionSessionReadRepos
         ));
     }
 
-    private AggregationOperation unwindPlateNumber() {
+    private AggregationOperation unwindLicensePlate() {
         return raw(new Document("$unwind",
                 new Document("path", "$licensePlate")
                         .append("preserveNullAndEmptyArrays", true)
