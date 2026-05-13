@@ -1,6 +1,7 @@
 package com.auction.backend.exception;
 
 import com.auction.backend.dto.ErrorResponse;
+import com.mongodb.DuplicateKeyException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,5 +46,15 @@ public class GlobalExceptionHandler {
         // Giấu nhẹm nguyên nhân thật sự, chỉ trả về cho Frontend câu xin lỗi
         ErrorResponse error = new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Hệ thống đang gặp sự cố, vui lòng thử lại sau!");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    }
+
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateKeyException(DuplicateKeyException e) {
+        log.error("Lỗi duplicate key : ", e);
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                "Dữ liệu đã tồn tại hoặc bị trùng, vui lòng kiểm tra lại"
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 }
