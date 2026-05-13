@@ -1,23 +1,23 @@
-package com.auction.backend.dto;
+package com.auction.backend.readmodel;
 
 import com.auction.backend.enums.AuctionSessionStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
+@Setter
 @AllArgsConstructor
+@NoArgsConstructor
 @Builder
-public class AuctionSessionDetailResponse {
+public class AuctionSessionDetailReadModel {
     private String id;
     private String licensePlateId;
     private String licensePlateNumber;
-    private String provinceName;
     private String categoryName;
+    private String provinceName;
     private List<String> tags;
     private AuctionSessionStatus status;
     private LocalDateTime startTime;
