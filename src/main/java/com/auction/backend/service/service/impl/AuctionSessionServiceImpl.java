@@ -32,7 +32,7 @@ public class AuctionSessionServiceImpl implements AuctionSessionService {
 
     @Override
     public AuctionSessionResponse createSession(CreateAuctionSessionRequest request) {
-        checkTime(request.getStartTime(), request.getEndTime());
+        checkTime(request.getStartTime());
         LicensePlate plate = licensePlateRepository.findById(request.getLicensePlateId())
                 .orElseThrow(() -> new AppException("Không tìm thấy biển số"));
 
@@ -61,10 +61,12 @@ public class AuctionSessionServiceImpl implements AuctionSessionService {
                 .licensePlateNumber(plate.getPlateNumber())
                 .auctionSettingId(setting.getId())
                 .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
+                .endTime(request.getStartTime().plusHours(1))
                 .status(AuctionSessionStatus.SCHEDULED)
                 .startingPrice(plate.getNextAuctionStartPrice())
                 .currentPrice(plate.getNextAuctionStartPrice())
+                .pausedAt(null)
+                .remainingSecondsWhenPaused(null)
                 .bidStepAmountSnapshot(setting.getBidStepAmount())
                 .build();
         AuctionSession savedSession = auctionSessionRepository.save(session);
@@ -107,21 +109,17 @@ public class AuctionSessionServiceImpl implements AuctionSessionService {
                             .startingPrice(session.getStartingPrice())
                             .currentPrice(session.getCurrentPrice())
                             .bidStepAmountSnapshot(session.getBidStepAmountSnapshot())
+                            .remainingSecondsWhenPaused(null)
                             .build();
                 })
                 .toList();
     }
 
 
-    private void checkTime(LocalDateTime startTime, LocalDateTime endTime) {
+    private void checkTime(LocalDateTime startTime) {
         LocalDateTime now = LocalDateTime.now();
-
-        if (startTime.isBefore(now) || endTime.isBefore(now)) {
+        if (startTime.isBefore(now)) {
             throw new AppException("Thời gian không hợp lệ");
-        }
-
-        if (endTime.isBefore(startTime) || endTime.isEqual(startTime)) {
-            throw new AppException("Thời gian kết thúc phải sau thời gian bắt đầu");
         }
     }
 }

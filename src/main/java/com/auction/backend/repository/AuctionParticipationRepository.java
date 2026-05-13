@@ -16,6 +16,7 @@ public interface AuctionParticipationRepository extends MongoRepository<AuctionP
             ParticipationStatus status
     );
 
-    List<AuctionParticipation> findByAuctionSessionId(String sessionId);
+    Optional<AuctionParticipation> findByAuctionSessionIdAndAccountId(String auctionSessionId, String accountId);
 
+    List<AuctionParticipation> findByAuctionSessionId(String auctionSessionId);
 }

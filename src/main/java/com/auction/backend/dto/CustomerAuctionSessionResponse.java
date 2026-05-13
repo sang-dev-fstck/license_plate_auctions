@@ -22,5 +22,6 @@ public class CustomerAuctionSessionResponse {
     private BigDecimal currentPrice;
     private BigDecimal bidStepAmountSnapshot;
     private String categoryName;
+    private Long remainingSecondsWhenPaused;
     private List<String> tags;
 }

@@ -49,8 +49,9 @@ public class AuctionSession extends BaseEntity {
 
     private String pauseReason;
     private String failureReason;
-    private String cancelReason;
 
+    private LocalDateTime pausedAt;
+    private Long remainingSecondsWhenPaused;
     @Version
     private Long version;
 }

@@ -9,14 +9,13 @@ import com.auction.backend.entity.Wallet;
 import com.auction.backend.enums.AuctionSessionStatus;
 import com.auction.backend.enums.ParticipationStatus;
 import com.auction.backend.exception.AppException;
-import com.auction.backend.repository.AccountRepository;
 import com.auction.backend.repository.AuctionParticipationRepository;
 import com.auction.backend.repository.AuctionSessionRepository;
 import com.auction.backend.repository.WalletRepository;
+import com.auction.backend.security.CurrentAccountProvider;
 import com.auction.backend.service.AuctionParticipationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -26,14 +25,14 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Slf4j
 public class AuctionParticipationServiceImpl implements AuctionParticipationService {
-    private final AccountRepository accountRepository;
     private final WalletRepository walletRepository;
     private final AuctionSessionRepository auctionSessionRepository;
     private final AuctionParticipationRepository auctionParticipationRepository;
+    private final CurrentAccountProvider currentAccountProvider;
 
     @Override
     public JoinAuctionSessionResponse joinAuctionSession(JoinAuctionSessionRequest request) {
-        Account user = getCurrentAccount();
+        Account user = currentAccountProvider.getCurrentAccount();
 
         AuctionSession session = auctionSessionRepository.findById(request.getAuctionSessionId())
                 .orElseThrow(() -> new AppException("Auction Session Not Found"));
@@ -65,6 +64,7 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
                     .auctionSessionId(session.getId())
                     .accountId(user.getId())
                     .depositAmount(depositAmount)
+                    .lastBidAmount(BigDecimal.ZERO)
                     .status(ParticipationStatus.RESERVED)
                     .build();
             AuctionParticipation savedParticipation = auctionParticipationRepository.save(participation);
@@ -78,7 +78,7 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
                     .depositAmount(savedParticipation.getDepositAmount())
                     .message("Đặt cọc tham gia phiên đấu giá thành công")
                     .build();
-            
+
         } catch (Exception e) {
             try {
                 savedWallet.unfreeze(depositAmount);
@@ -90,17 +90,6 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
         }
     }
 
-    private Account getCurrentAccount() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new AppException("Người dùng chưa đăng nhập");
-        }
-
-        String email = authentication.getName();
-
-        return accountRepository.findByEmail(email)
-                .orElseThrow(() -> new AppException("Không tìm thấy người dùng hiện tại"));
-    }
 
     private void validateSessionCanReserve(AuctionSession session) {
         if (session.getStatus() != AuctionSessionStatus.SCHEDULED) {
