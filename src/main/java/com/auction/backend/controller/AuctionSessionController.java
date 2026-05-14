@@ -25,9 +25,11 @@ public class AuctionSessionController {
         return ResponseEntity.ok(auctionSessionService.createSession(request));
     }
 
-    @GetMapping("/customer")
-    public ResponseEntity<List<CustomerAuctionSessionResponse>> getCustomerSessions() {
-        return ResponseEntity.ok(auctionSessionService.getCustomerSessions());
+    @PostMapping("/customer")
+    public ResponseEntity<PageResponse<CustomerAuctionSessionResponse>> getCustomerSessions(
+            @RequestBody SearchSessionRequest request
+    ) {
+        return ResponseEntity.ok(auctionSessionQueryService.getCustomerSessions(request));
     }
 
     @PatchMapping("/{id}/activate")

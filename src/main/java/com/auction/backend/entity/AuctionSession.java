@@ -13,6 +13,7 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Document(collection = "auction_sessions")
 @Getter
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
 
 @CompoundIndexes({
         @CompoundIndex(
@@ -38,9 +40,10 @@ public class AuctionSession extends BaseEntity {
 
     @Indexed
     private String licensePlateId;
-
+    @Indexed
     private String licensePlateNumber;
-
+    private String categoryNameSnapshot;
+    private List<String> tags;
     private String auctionSettingId;
 
     private LocalDateTime startTime;

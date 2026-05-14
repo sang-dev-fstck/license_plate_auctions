@@ -1,16 +1,19 @@
 package com.auction.backend.service.service.impl;
 
-import com.auction.backend.dto.AuctionSessionDetailResponse;
-import com.auction.backend.dto.BidHistoryItemResponse;
+import com.auction.backend.dto.*;
 import com.auction.backend.entity.AuctionSession;
 import com.auction.backend.entity.Bid;
 import com.auction.backend.exception.AppException;
+import com.auction.backend.mapper.AuctionSessionMapper;
 import com.auction.backend.readmodel.AuctionSessionDetailReadModel;
+import com.auction.backend.readmodel.CustomerAuctionSessionReadModel;
 import com.auction.backend.repository.AuctionSessionReadRepository;
 import com.auction.backend.repository.AuctionSessionRepository;
 import com.auction.backend.repository.BidRepository;
 import com.auction.backend.service.AuctionSessionQueryService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,9 +21,11 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryService {
     private final AuctionSessionRepository auctionSessionRepository;
     private final AuctionSessionReadRepository auctionSessionReadRepository;
+    private final AuctionSessionMapper auctionSessionMapper;
     private final BidRepository bidRepository;
 
     @Override
@@ -67,6 +72,17 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
                         .createdAt(bid.getCreatedAt())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public PageResponse<CustomerAuctionSessionResponse> getCustomerSessions(SearchSessionRequest request) {
+        Page<CustomerAuctionSessionReadModel> pageResult = auctionSessionReadRepository.searchAuctionSessionsDynamic(request);
+        log.info("Found {} AuctionSessions", pageResult.getContent().size());
+        List<CustomerAuctionSessionResponse> content = pageResult.getContent().stream()
+                .map(auctionSessionMapper::toResponseForCustomer)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(pageResult, content);
     }
 
     private AuctionSession getSession(String sessionId) {
