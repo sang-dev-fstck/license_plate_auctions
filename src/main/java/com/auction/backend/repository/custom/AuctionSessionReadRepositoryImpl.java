@@ -1,20 +1,36 @@
 package com.auction.backend.repository.custom;
 
+import com.auction.backend.common.PlateUtils;
+import com.auction.backend.dto.SearchSessionRequest;
+import com.auction.backend.entity.AuctionSession;
+import com.auction.backend.enums.VehicleType;
 import com.auction.backend.readmodel.AuctionSessionDetailReadModel;
+import com.auction.backend.readmodel.CustomerAuctionSessionReadModel;
 import com.auction.backend.repository.AuctionSessionReadRepository;
 import lombok.RequiredArgsConstructor;
 import org.bson.Document;
+import org.springframework.data.domain.*;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 @RequiredArgsConstructor
 public class AuctionSessionReadRepositoryImpl implements AuctionSessionReadRepository {
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "startTime",
+            "endTime",
+            "status",
+            "licensePlateNumber"
+    );
     private final MongoTemplate mongoTemplate;
 
     @Override
@@ -38,6 +54,59 @@ public class AuctionSessionReadRepositoryImpl implements AuctionSessionReadRepos
         return results.getMappedResults()
                 .stream()
                 .findFirst();
+    }
+
+    @Override
+    public Page<CustomerAuctionSessionReadModel> searchAuctionSessionsDynamic(SearchSessionRequest request) {
+        Query query = new Query();
+
+        if (request.getPlateNumber() != null && !request.getPlateNumber().isBlank()) {
+            boolean isCar = request.getVehicleType() == VehicleType.CAR;
+            String normalizedPlateNumber = PlateUtils.normalizePlateNumber(request.getPlateNumber(), isCar);
+            query.addCriteria(
+                    Criteria.where("licensePlateNumber").is(normalizedPlateNumber)
+            );
+        }
+
+        if (request.getStatus() != null) {
+            query.addCriteria(Criteria.where("status").is(request.getStatus()));
+        }
+
+        if (request.getFromDate() != null || request.getToDate() != null) {
+            Criteria startTimeCriteria = Criteria.where("startTime");
+
+            if (request.getFromDate() != null) {
+                startTimeCriteria.gte(request.getFromDate());
+            }
+
+            if (request.getToDate() != null) {
+                startTimeCriteria.lte(request.getToDate());
+            }
+
+            query.addCriteria(startTimeCriteria);
+        }
+
+        Sort sort = buildSort(request);
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
+
+        long total = mongoTemplate.count(query, AuctionSession.class);
+
+        query.with(pageable);
+
+        List<CustomerAuctionSessionReadModel> sessions = mongoTemplate.find(query, CustomerAuctionSessionReadModel.class, "auction_sessions");
+        return new PageImpl<>(sessions, pageable, total);
+    }
+
+    private Sort buildSort(SearchSessionRequest request) {
+        String sortBy = ALLOWED_SORT_FIELDS.contains(request.getSortBy())
+                ? request.getSortBy()
+                : "startTime";
+
+        Sort.Direction direction = "DESC".equalsIgnoreCase(request.getSortDir())
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
+
+        return Sort.by(direction, sortBy);
     }
 
     private AggregationOperation matchSessionById(String sessionId) {

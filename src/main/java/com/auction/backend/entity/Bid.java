@@ -4,6 +4,7 @@ import com.auction.backend.enums.BidStatus;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.FieldType;
@@ -16,6 +17,11 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
+@CompoundIndex(
+        name = "idx_bid_session_created_at",
+        def = "{'auctionSessionId': 1, 'createdAt': -1}"
+)
 public class Bid extends BaseEntity {
 
     @Id

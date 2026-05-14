@@ -4,6 +4,8 @@ import com.auction.backend.enums.AuctionSessionStatus;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -11,6 +13,7 @@ import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Document(collection = "auction_sessions")
 @Getter
@@ -18,6 +21,18 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
+
+@CompoundIndexes({
+        @CompoundIndex(
+                name = "idx_session_status_start_time",
+                def = "{'status': 1, 'startTime': 1}"
+        ),
+        @CompoundIndex(
+                name = "idx_session_status_end_time",
+                def = "{'status': 1, 'endTime': 1}"
+        )
+})
 public class AuctionSession extends BaseEntity {
 
     @Id
@@ -25,9 +40,10 @@ public class AuctionSession extends BaseEntity {
 
     @Indexed
     private String licensePlateId;
-
+    @Indexed
     private String licensePlateNumber;
-
+    private String categoryNameSnapshot;
+    private List<String> tags;
     private String auctionSettingId;
 
     private LocalDateTime startTime;

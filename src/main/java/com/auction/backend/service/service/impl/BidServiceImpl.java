@@ -16,6 +16,7 @@ import com.auction.backend.security.CurrentAccountProvider;
 import com.auction.backend.service.BidService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -33,6 +34,22 @@ public class BidServiceImpl implements BidService {
 
     @Override
     public PlaceBidResponse placeBid(PlaceBidRequest request) {
+        int maxAttempts = 3;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return placeBidOnce(request);
+            } catch (OptimisticLockingFailureException e) {
+                if (attempt == maxAttempts) {
+                    throw new AppException("Có người vừa đặt giá trước bạn, vui lòng thử lại");
+                }
+                log.warn("Optimistic locking conflict when placing bid. attempt={}", attempt);
+            }
+        }
+        throw new AppException("Không thể đặt giá, vui lòng thử lại");
+    }
+
+    private PlaceBidResponse placeBidOnce(PlaceBidRequest request) {
         Account user = currentAccountProvider.getCurrentAccount();
 
         AuctionSession session = auctionSessionRepository.findById(request.getAuctionSessionId())
@@ -70,21 +87,11 @@ public class BidServiceImpl implements BidService {
                 Bid bid = saveBidAndUpdateSession(request, user, session);
                 participation.setStatus(ParticipationStatus.CONSUMED);
                 return getBidResponse(request, session, participation, bid);
+            } catch (OptimisticLockingFailureException e) {
+                rollBack(request, participation, wallet, oldCurrentPrice, previousLeaderWallet);
+                throw e;
             } catch (Exception e) {
-                try {
-
-                    wallet.unfreeze(request.getAmount());
-                    wallet.freeze(participation.getDepositAmount());
-                    walletRepository.save(wallet);
-
-                    if (previousLeaderWallet != null) {
-                        previousLeaderWallet.freeze(oldCurrentPrice);
-                        walletRepository.save(previousLeaderWallet);
-                    }
-
-                } catch (Exception rollbackEx) {
-                    log.error("Rollback bid flow failed", rollbackEx);
-                }
+                rollBack(request, participation, wallet, oldCurrentPrice, previousLeaderWallet);
                 throw new AppException(e.getMessage());
             }
         }
@@ -96,14 +103,22 @@ public class BidServiceImpl implements BidService {
                 try {
                     walletRepository.save(wallet);
                     return getPlaceBidResponse(request, user, session, participation);
+                } catch (OptimisticLockingFailureException e) {
+                    try {
+                        wallet.unfreeze(delta);
+                        walletRepository.save(wallet);
+                    } catch (Exception rollbackEx) {
+                        log.error("Rollback bid flow failed", rollbackEx);
+                    }
+                    throw e;
                 } catch (Exception e) {
                     try {
                         wallet.unfreeze(delta);
                         walletRepository.save(wallet);
                     } catch (Exception rollbackEx) {
-                        log.error(String.valueOf(rollbackEx));
+                        log.error("Rollback bid flow failed", rollbackEx);
                     }
-                    throw new AppException(e.getMessage());
+                    throw new AppException("Không thể đặt giá, vui lòng thử lại");
                 }
             } else {
                 throw new AppException("Hệ thống đang gặp lỗi");
@@ -125,6 +140,18 @@ public class BidServiceImpl implements BidService {
             walletRepository.save(wallet);
 
             return getPlaceBidResponse(request, user, session, participation);
+        } catch (OptimisticLockingFailureException e) {
+            try {
+                wallet.unfreeze(request.getAmount());
+                walletRepository.save(wallet);
+
+                previousLeaderWallet.freeze(oldCurrentPrice);
+                walletRepository.save(previousLeaderWallet);
+
+            } catch (Exception rollbackEx) {
+                log.error("Rollback bid flow failed", rollbackEx);
+            }
+            throw e;
         } catch (Exception e) {
             try {
                 wallet.unfreeze(request.getAmount());
@@ -136,9 +163,26 @@ public class BidServiceImpl implements BidService {
             } catch (Exception rollbackEx) {
                 log.error("Rollback bid flow failed", rollbackEx);
             }
-            throw new AppException(e.getMessage());
+        }
+        throw new AppException("Không thể đặt giá !");
+    }
+
+    private void rollBack(PlaceBidRequest request, AuctionParticipation participation, Wallet wallet, BigDecimal oldCurrentPrice, Wallet previousLeaderWallet) {
+        try {
+            wallet.unfreeze(request.getAmount());
+            wallet.freeze(participation.getDepositAmount());
+            walletRepository.save(wallet);
+
+            if (previousLeaderWallet != null) {
+                previousLeaderWallet.freeze(oldCurrentPrice);
+                walletRepository.save(previousLeaderWallet);
+            }
+
+        } catch (Exception rollbackEx) {
+            log.error("Rollback bid flow failed", rollbackEx);
         }
     }
+
 
     private PlaceBidResponse getBidResponse(PlaceBidRequest request, AuctionSession session, AuctionParticipation participation, Bid bid) {
         participation.setLastBidAmount(request.getAmount());
