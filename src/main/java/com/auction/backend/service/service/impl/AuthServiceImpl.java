@@ -14,7 +14,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -40,26 +39,25 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public String register(RegisterRequest request) {
         String email = normalizeEmail(request.getEmail());
-        String phoneNumer = normalizePhone(request.getPhoneNumber());
+        String phoneNumber = normalizePhone(request.getPhoneNumber());
         if (accountRepository.existsByEmail(email)) {
-            throw new AppException("This email already exists");
+            throw AppException.conflict("email", "Email đã tồn tại");
+        }
+
+        if (accountRepository.existsByPhoneNumber(phoneNumber)) {
+            throw AppException.conflict("phoneNumber", "Số điện thoại đã tồn tại");
         }
         Account account = Account.builder()
                 .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .active(true)
-                .phoneNumber(phoneNumer)
+                .phoneNumber(phoneNumber)
                 .fullName(request.getFullName())
                 .role(Role.BIDDER)
                 .build();
         // 3. Persist Account - Lúc này ID sẽ được sinh ra
         Account savedAccount;
-        try {
-            savedAccount = accountRepository.save(account);
-        } catch (DataIntegrityViolationException e) {
-            // Chặn đứng race condition nếu Index Unique bị vi phạm
-            throw new AppException("Email hoặc số điện thoại đã tồn tại trong hệ thống");
-        }
+        savedAccount = accountRepository.save(account);
         try {
             Wallet wallet = Wallet.create(savedAccount.getId());
             walletRepository.save(wallet);

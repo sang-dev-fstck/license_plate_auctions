@@ -5,7 +5,6 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
-import java.util.Set;
 
 @Repository
 public interface AccountRepository extends MongoRepository<Account, String> {
@@ -13,5 +12,5 @@ public interface AccountRepository extends MongoRepository<Account, String> {
 
     Boolean existsByEmail(String email);
 
-    Set<Account> findByIdIn(Set<String> emails);
+    Boolean existsByPhoneNumber(String phoneNumber);
 }
