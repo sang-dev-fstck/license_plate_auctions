@@ -107,15 +107,8 @@ public class BidServiceImpl implements BidService {
         Bid bid = null;
 
         try {
-            wallet.unfreeze(participation.getDepositAmount());
-            wallet.freeze(request.getAmount());
-
-            participation.setStatus(ParticipationStatus.CONSUMED);
-            participation.setLastBidAmount(request.getAmount());
-
-            walletRepository.save(wallet);
-            auctionParticipationRepository.save(participation);
-
+            consumeBidderParticipationAndWallet(wallet, participation, request.getAmount());
+            
             advanceSessionForBid(request, user, session);
             bid = saveBidHistoryAfterAccepted(request, user, session);
 
@@ -212,15 +205,11 @@ public class BidServiceImpl implements BidService {
         Bid bid = null;
 
         try {
-            wallet.freeze(request.getAmount());
 
-            participation.setStatus(ParticipationStatus.CONSUMED);
-            participation.setLastBidAmount(request.getAmount());
-
-            walletRepository.save(wallet);
-            auctionParticipationRepository.save(participation);
+            consumeBidderParticipationAndWallet(wallet, participation, request.getAmount());
 
             advanceSessionForBid(request, user, session);
+
             bid = saveBidHistoryAfterAccepted(request, user, session);
 
             releasePreviousLeaderAfterSuccessfulBid(
@@ -279,6 +268,19 @@ public class BidServiceImpl implements BidService {
             );
             return null;
         }
+    }
+
+    private void consumeBidderParticipationAndWallet(
+            Wallet wallet,
+            AuctionParticipation participation,
+            BigDecimal amount
+    ) {
+        wallet.freeze(amount);
+        participation.setStatus(ParticipationStatus.CONSUMED);
+        participation.setLastBidAmount(amount);
+
+        walletRepository.save(wallet);
+        auctionParticipationRepository.save(participation);
     }
 
     private Bid buildBid(PlaceBidRequest request, Account user, AuctionSession session) {
