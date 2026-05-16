@@ -21,9 +21,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-
-
-@CompoundIndexes({
+@CompoundIndexes(value = {
         @CompoundIndex(
                 name = "idx_session_status_start_time",
                 def = "{'status': 1, 'startTime': 1}"
@@ -31,8 +29,13 @@ import java.util.List;
         @CompoundIndex(
                 name = "idx_session_status_end_time",
                 def = "{'status': 1, 'endTime': 1}"
+        ),
+        @CompoundIndex(
+                name = "idx_session_status_plate_start_time",
+                def = "{'status': 1, 'licensePlateNumber': 1, 'startTime': 1}"
         )
 })
+
 public class AuctionSession extends BaseEntity {
 
     @Id

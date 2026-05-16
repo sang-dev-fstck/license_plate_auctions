@@ -155,6 +155,9 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setWinnerAccountId(currentLeaderId);
 
             Wallet winnerWallet = getWinnerWallet(currentLeaderId);
+            log.info("Winner wallet id= {}", winnerWallet.getAccountId());
+            log.info("Current  wallet = {}", winnerWallet.getFrozenBalance());
+            log.info("Current price ={}", validSession.getCurrentPrice());
             winnerWallet.debitFrozen(validSession.getCurrentPrice());
             walletsToSave.add(winnerWallet);
 
