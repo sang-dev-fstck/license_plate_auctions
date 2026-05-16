@@ -42,4 +42,9 @@ public class AuctionParticipation extends BaseEntity {
 
     @Version
     private Long version;
+
+    public void restoreState(ParticipationStatus status, BigDecimal lastBidAmount) {
+        this.status = status;
+        this.lastBidAmount = lastBidAmount;
+    }
 }
