@@ -108,8 +108,9 @@ public class BidServiceImpl implements BidService {
 
         try {
             consumeBidderParticipationAndWallet(wallet, participation, request.getAmount());
-            
+
             advanceSessionForBid(request, user, session);
+            verifyLeaderConsistency(session);
             bid = saveBidHistoryAfterAccepted(request, user, session);
 
             releasePreviousLeaderAfterSuccessfulBid(
@@ -165,6 +166,7 @@ public class BidServiceImpl implements BidService {
             auctionParticipationRepository.save(participation);
 
             advanceSessionForBid(request, user, session);
+            verifyLeaderConsistency(session);
             bid = saveBidHistoryAfterAccepted(request, user, session);
 
         } catch (OptimisticLockingFailureException e) {
@@ -209,7 +211,7 @@ public class BidServiceImpl implements BidService {
             consumeBidderParticipationAndWallet(wallet, participation, request.getAmount());
 
             advanceSessionForBid(request, user, session);
-
+            verifyLeaderConsistency(session);
             bid = saveBidHistoryAfterAccepted(request, user, session);
 
             releasePreviousLeaderAfterSuccessfulBid(
@@ -472,6 +474,55 @@ public class BidServiceImpl implements BidService {
         } catch (Exception rollbackEx) {
             log.error("Failed to delete bid history after failed bid flow. bidId={}", bid.getId(), rollbackEx);
         }
+    }
+
+    private void verifyLeaderConsistency(AuctionSession session) {
+        if (session.getCurrentLeaderAccountId() == null) {
+            return;
+        }
+
+        AuctionParticipation leaderParticipation =
+                auctionParticipationRepository.findByAuctionSessionIdAndAccountId(
+                        session.getId(),
+                        session.getCurrentLeaderAccountId()
+                ).orElseThrow(() -> new AppException("Không tìm thấy participation của leader hiện tại"));
+
+        Wallet leaderWallet = walletRepository.findByAccountId(session.getCurrentLeaderAccountId())
+                .orElseThrow(() -> new AppException("Không tìm thấy ví của leader hiện tại"));
+
+        BigDecimal currentPrice = session.getCurrentPrice();
+        BigDecimal lastBidAmount = leaderParticipation.getLastBidAmount();
+        BigDecimal frozenBalance = leaderWallet.getFrozenBalance();
+
+        if (lastBidAmount == null || lastBidAmount.compareTo(currentPrice) != 0) {
+            log.error(
+                    "Bid consistency violation: lastBidAmount mismatch. sessionId={}, leaderId={}, currentPrice={}, lastBidAmount={}",
+                    session.getId(),
+                    session.getCurrentLeaderAccountId(),
+                    currentPrice,
+                    lastBidAmount
+            );
+            throw new AppException("Dữ liệu phiên đấu giá không đồng bộ, vui lòng thử lại");
+        }
+
+        if (frozenBalance.compareTo(currentPrice) < 0) {
+            log.error(
+                    "Bid consistency violation: frozen balance insufficient. sessionId={}, leaderId={}, currentPrice={}, frozenBalance={}",
+                    session.getId(),
+                    session.getCurrentLeaderAccountId(),
+                    currentPrice,
+                    frozenBalance
+            );
+            throw new AppException("Dữ liệu ví của leader không đồng bộ, vui lòng thử lại");
+        }
+
+        log.info(
+                "Bid consistency verified. sessionId={}, leaderId={}, currentPrice={}, frozenBalance={}",
+                session.getId(),
+                session.getCurrentLeaderAccountId(),
+                currentPrice,
+                frozenBalance
+        );
     }
 
     private record ParticipationSnapshot(

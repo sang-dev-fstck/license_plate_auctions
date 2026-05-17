@@ -155,9 +155,19 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setWinnerAccountId(currentLeaderId);
 
             Wallet winnerWallet = getWinnerWallet(currentLeaderId);
-            log.info("Winner wallet id= {}", winnerWallet.getAccountId());
-            log.info("Current  wallet = {}", winnerWallet.getFrozenBalance());
-            log.info("Current price ={}", validSession.getCurrentPrice());
+            
+            if (winnerWallet.getFrozenBalance().compareTo(validSession.getCurrentPrice()) < 0) {
+                log.error(
+                        "Cannot end session due to inconsistent winner wallet. sessionId={}, winnerId={}, currentPrice={}, frozenBalance={}",
+                        validSession.getId(),
+                        currentLeaderId,
+                        validSession.getCurrentPrice(),
+                        winnerWallet.getFrozenBalance()
+                );
+
+                throw new AppException("Dữ liệu ví của người thắng không đồng bộ, không thể kết thúc phiên");
+            }
+
             winnerWallet.debitFrozen(validSession.getCurrentPrice());
             walletsToSave.add(winnerWallet);
 
