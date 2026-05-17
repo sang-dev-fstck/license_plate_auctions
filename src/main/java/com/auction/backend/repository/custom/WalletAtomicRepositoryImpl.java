@@ -34,7 +34,7 @@ public class WalletAtomicRepositoryImpl implements WalletAtomicRepository {
         UpdateResult updateResult = mongoTemplate.updateFirst(query, update, Wallet.class);
 
         if (updateResult.getModifiedCount() != 1) {
-            throw new AppException("Số dư đang khóa không đủ");
+            throw new AppException("Số dư khả dụng không đủ");
         }
     }
 
