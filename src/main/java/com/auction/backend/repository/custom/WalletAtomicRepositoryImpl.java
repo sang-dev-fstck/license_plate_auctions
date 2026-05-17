@@ -1,5 +1,6 @@
 package com.auction.backend.repository.custom;
 
+import com.auction.backend.entity.Wallet;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.WalletAtomicRepository;
 import com.mongodb.client.result.UpdateResult;
@@ -30,7 +31,7 @@ public class WalletAtomicRepositoryImpl implements WalletAtomicRepository {
                 .inc("availableBalance", amount.negate())
                 .inc("frozenBalance", amount)
                 .inc("version", 1);
-        UpdateResult updateResult = mongoTemplate.updateFirst(query, update, "wallets");
+        UpdateResult updateResult = mongoTemplate.updateFirst(query, update, Wallet.class);
 
         if (updateResult.getModifiedCount() != 1) {
             throw new AppException("Số dư đang khóa không đủ");
@@ -50,7 +51,7 @@ public class WalletAtomicRepositoryImpl implements WalletAtomicRepository {
                 .inc("availableBalance", amount)
                 .inc("version", 1);
 
-        UpdateResult updateResult = mongoTemplate.updateFirst(query, update, "wallets");
+        UpdateResult updateResult = mongoTemplate.updateFirst(query, update, Wallet.class);
 
         if (updateResult.getModifiedCount() != 1) {
             throw new AppException("Số dư đang khóa không đủ");
@@ -68,7 +69,7 @@ public class WalletAtomicRepositoryImpl implements WalletAtomicRepository {
         Update update = new Update()
                 .inc("frozenBalance", amount.negate())
                 .inc("version", 1);
-        UpdateResult updateResult = mongoTemplate.updateFirst(query, update, "wallets");
+        UpdateResult updateResult = mongoTemplate.updateFirst(query, update, Wallet.class);
 
         if (updateResult.getModifiedCount() != 1) {
             throw new AppException("Số dư đang khóa không đủ để thanh toán");
@@ -86,7 +87,7 @@ public class WalletAtomicRepositoryImpl implements WalletAtomicRepository {
                 .inc("availableBalance", amount)
                 .inc("version", 1);
 
-        UpdateResult updateResult = mongoTemplate.updateFirst(query, update, "wallets");
+        UpdateResult updateResult = mongoTemplate.updateFirst(query, update, Wallet.class);
         if (updateResult.getModifiedCount() != 1) {
             throw new AppException("Không tìm thấy ví hoặc ví đã bị khóa");
         }
