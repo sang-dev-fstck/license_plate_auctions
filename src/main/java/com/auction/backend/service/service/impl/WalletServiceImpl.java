@@ -8,6 +8,7 @@ import com.auction.backend.entity.Wallet;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.mapper.WalletMapper;
 import com.auction.backend.repository.AccountRepository;
+import com.auction.backend.repository.WalletAtomicRepository;
 import com.auction.backend.repository.WalletRepository;
 import com.auction.backend.service.WalletService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class WalletServiceImpl implements WalletService {
     private final WalletRepository walletRepository;
+    private final WalletAtomicRepository walletAtomicRepository;
     private final AccountRepository accountRepository;
     private final WalletMapper walletMapper;
 
@@ -47,8 +49,10 @@ public class WalletServiceImpl implements WalletService {
     public CurrentWalletResponse freeze(FreezeRequest freezeRequest) {
         long start = System.currentTimeMillis();
         Wallet wallet = findCurrentWallet();
-        wallet.freeze(freezeRequest.getAmount());
-        Wallet updatedWallet = walletRepository.save(wallet);
+        String accountId = wallet.getAccountId();
+        walletAtomicRepository.freezeAvailable(accountId, freezeRequest.getAmount());
+        Wallet updatedWallet = walletRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new AppException("Không tìm thấy ví"));
         long end = System.currentTimeMillis();
         log.info("Freeze completed in {} ms", (end - start));
         return walletMapper.toResponse(updatedWallet);
