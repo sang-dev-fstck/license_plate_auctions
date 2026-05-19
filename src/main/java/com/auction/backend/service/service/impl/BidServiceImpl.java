@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 public class BidServiceImpl implements BidService {
     private final BidRepository bidRepository;
     private final WalletRepository walletRepository;
+    private final WalletAtomicRepository walletAtomicRepository;
     private final CurrentAccountProvider currentAccountProvider;
     private final AuctionSessionRepository auctionSessionRepository;
     private final AuctionParticipationRepository auctionParticipationRepository;
@@ -63,30 +64,17 @@ public class BidServiceImpl implements BidService {
         validateParticipation(participation);
         validateBidAmount(request.getAmount(), session);
 
-        Wallet wallet = walletRepository.findByAccountId(user.getId())
-                .orElseThrow(() -> new AppException("Tài khoản không tồn tại ví, vui lòng kiểm tra lại !"));
-
         boolean isCurrentLeader = isCurrentLeader(session, user);
 
-        log.info(
-                "Bid wallet check: userId={}, available={}, frozen={}, bidAmount={}, participationStatus={}, depositAmount={}",
-                user.getId(),
-                wallet.getAvailableBalance(),
-                wallet.getFrozenBalance(),
-                request.getAmount(),
-                participation.getStatus(),
-                participation.getDepositAmount()
-        );
-
         if (participation.getStatus() == ParticipationStatus.RESERVED) {
-            return placeFirstBidFromReserved(request, user, session, participation, wallet);
+            return placeFirstBidFromReserved(request, user, session, participation, user.getId());
         }
 
         if (participation.getStatus() == ParticipationStatus.CONSUMED && isCurrentLeader) {
-            return rebidAsCurrentLeader(request, user, session, participation, wallet);
+            return rebidAsCurrentLeader(request, user, session, participation, user.getId());
         }
 
-        return outbidCurrentLeader(request, user, session, participation, wallet);
+        return outbidCurrentLeader(request, user, session, participation, user.getId());
     }
 
     private PlaceBidResponse placeFirstBidFromReserved(
@@ -94,44 +82,56 @@ public class BidServiceImpl implements BidService {
             Account user,
             AuctionSession session,
             AuctionParticipation participation,
-            Wallet wallet
+            String accountId
     ) {
-        WalletSnapshot walletSnapshot = snapshot(wallet);
         ParticipationSnapshot participationSnapshot = snapshot(participation);
 
-        Wallet previousLeaderWallet = getPreviousLeaderWallet(session, user);
-        BigDecimal previousLeaderAmountToRelease = previousLeaderWallet != null
+        String previousLeaderAccountId = session.getCurrentLeaderAccountId();
+
+        BigDecimal previousLeaderAmountToRelease = previousLeaderAccountId != null
                 ? getPreviousLeaderAmountToRelease(session)
                 : null;
+        BigDecimal additionalAmount = request.getAmount().subtract(participation.getDepositAmount());
 
-        Bid bid = null;
+        if (additionalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException("Giá đặt phải lớn hơn tiền đặt cọc");
+        }
+
+        boolean walletAdjusted = false;
 
         try {
-            consumeBidderParticipationAndWallet(wallet, participation, request.getAmount());
+            if (additionalAmount.compareTo(BigDecimal.ZERO) > 0) {
+                walletAtomicRepository.freezeAvailable(accountId, additionalAmount);
+                walletAdjusted = true;
+            }
+
+            participation.setStatus(ParticipationStatus.CONSUMED);
+            participation.setLastBidAmount(request.getAmount());
+            auctionParticipationRepository.save(participation);
 
             advanceSessionForBid(request, user, session);
-            verifyLeaderConsistency(session);
-            bid = saveBidHistoryAfterAccepted(request, user, session);
-
-            releasePreviousLeaderAfterSuccessfulBid(
-                    previousLeaderWallet,
-                    previousLeaderAmountToRelease,
-                    session.getId()
-            );
-
-        } catch (OptimisticLockingFailureException e) {
-            deleteBidIfCreated(bid);
-            restoreWallet(wallet, walletSnapshot);
+        } catch (OptimisticLockingFailureException | AppException e) {
+            if (walletAdjusted) {
+                safeReleaseFrozen(accountId, additionalAmount, "rollback first bid from reserved");
+            }
             restoreParticipation(participation, participationSnapshot);
             throw e;
 
         } catch (Exception e) {
-            deleteBidIfCreated(bid);
-            restoreWallet(wallet, walletSnapshot);
+            if (walletAdjusted) {
+                safeReleaseFrozen(accountId, additionalAmount, "rollback first bid from reserved");
+            }
             restoreParticipation(participation, participationSnapshot);
             log.error("Failed to place first bid from RESERVED", e);
             throw new AppException("Không thể đặt giá, vui lòng thử lại");
         }
+        reportLeaderConsistency(session);
+        Bid bid = saveBidHistoryAfterAccepted(request, user, session);
+        releasePreviousLeaderAfterSuccessfulBid(
+                previousLeaderAccountId,
+                previousLeaderAmountToRelease,
+                session.getId()
+        );
 
         return getBidResponse(request, session, bid);
     }
@@ -141,7 +141,7 @@ public class BidServiceImpl implements BidService {
             Account user,
             AuctionSession session,
             AuctionParticipation participation,
-            Wallet wallet
+            String accountId
     ) {
         if (participation.getLastBidAmount() == null) {
             throw new AppException("Dữ liệu đặt giá của người dùng không hợp lệ");
@@ -153,35 +153,34 @@ public class BidServiceImpl implements BidService {
             throw new AppException("Giá đặt mới phải lớn hơn giá đã đặt trước đó");
         }
 
-        WalletSnapshot walletSnapshot = snapshot(wallet);
         ParticipationSnapshot participationSnapshot = snapshot(participation);
 
-        Bid bid = null;
-
+        boolean walletAdjusted = false;
         try {
-            wallet.freeze(delta);
-            participation.setLastBidAmount(request.getAmount());
+            walletAtomicRepository.freezeAvailable(accountId, delta);
+            walletAdjusted = true;
 
-            walletRepository.save(wallet);
+            participation.setLastBidAmount(request.getAmount());
             auctionParticipationRepository.save(participation);
 
             advanceSessionForBid(request, user, session);
-            verifyLeaderConsistency(session);
-            bid = saveBidHistoryAfterAccepted(request, user, session);
-
-        } catch (OptimisticLockingFailureException e) {
-            deleteBidIfCreated(bid);
-            restoreWallet(wallet, walletSnapshot);
+        } catch (OptimisticLockingFailureException | AppException e) {
+            if (walletAdjusted) {
+                safeReleaseFrozen(accountId, delta, "rollback current leader rebid");
+            }
             restoreParticipation(participation, participationSnapshot);
             throw e;
 
         } catch (Exception e) {
-            deleteBidIfCreated(bid);
-            restoreWallet(wallet, walletSnapshot);
+            if (walletAdjusted) {
+                safeReleaseFrozen(accountId, delta, "rollback current leader rebid");
+            }
             restoreParticipation(participation, participationSnapshot);
             log.error("Failed to rebid as current leader", e);
             throw new AppException("Không thể đặt giá, vui lòng thử lại");
         }
+        reportLeaderConsistency(session);
+        Bid bid = saveBidHistoryAfterAccepted(request, user, session);
 
         return getBidResponse(request, session, bid);
     }
@@ -191,49 +190,48 @@ public class BidServiceImpl implements BidService {
             Account user,
             AuctionSession session,
             AuctionParticipation participation,
-            Wallet wallet
+            String accountId
     ) {
-        Wallet previousLeaderWallet = getPreviousLeaderWallet(session, user);
+        String previousLeaderAccountId = session.getCurrentLeaderAccountId();
 
-        if (previousLeaderWallet == null) {
-            throw new AppException("Không tìm được ví của leader hiện tại");
+        if (previousLeaderAccountId == null) {
+            throw new AppException("Không tìm được leader hiện tại");
         }
 
         BigDecimal amountToRelease = getPreviousLeaderAmountToRelease(session);
 
-        WalletSnapshot walletSnapshot = snapshot(wallet);
         ParticipationSnapshot participationSnapshot = snapshot(participation);
-
-        Bid bid = null;
-
+        boolean walletAdjusted = false;
         try {
 
-            consumeBidderParticipationAndWallet(wallet, participation, request.getAmount());
-
+            walletAtomicRepository.freezeAvailable(accountId, request.getAmount());
+            walletAdjusted = true;
+            participation.setLastBidAmount(request.getAmount());
+            auctionParticipationRepository.save(participation);
             advanceSessionForBid(request, user, session);
-            verifyLeaderConsistency(session);
-            bid = saveBidHistoryAfterAccepted(request, user, session);
-
-            releasePreviousLeaderAfterSuccessfulBid(
-                    previousLeaderWallet,
-                    amountToRelease,
-                    session.getId()
-            );
-
-        } catch (OptimisticLockingFailureException e) {
-            deleteBidIfCreated(bid);
-            restoreWallet(wallet, walletSnapshot);
+        } catch (OptimisticLockingFailureException | AppException e) {
+            if (walletAdjusted) {
+                safeReleaseFrozen(accountId, request.getAmount(), "rollback outbid current leader");
+            }
             restoreParticipation(participation, participationSnapshot);
             throw e;
 
         } catch (Exception e) {
-            deleteBidIfCreated(bid);
-            restoreWallet(wallet, walletSnapshot);
+            if (walletAdjusted) {
+                safeReleaseFrozen(accountId, request.getAmount(), "rollback outbid current leader");
+            }
             restoreParticipation(participation, participationSnapshot);
             log.error("Failed to outbid current leader", e);
             throw new AppException("Không thể đặt giá, vui lòng thử lại");
         }
 
+        reportLeaderConsistency(session);
+        releasePreviousLeaderAfterSuccessfulBid(
+                previousLeaderAccountId,
+                amountToRelease,
+                session.getId()
+        );
+        Bid bid = saveBidHistoryAfterAccepted(request, user, session);
         return getBidResponse(request, session, bid);
     }
 
@@ -272,19 +270,6 @@ public class BidServiceImpl implements BidService {
         }
     }
 
-    private void consumeBidderParticipationAndWallet(
-            Wallet wallet,
-            AuctionParticipation participation,
-            BigDecimal amount
-    ) {
-        wallet.freeze(amount);
-        participation.setStatus(ParticipationStatus.CONSUMED);
-        participation.setLastBidAmount(amount);
-
-        walletRepository.save(wallet);
-        auctionParticipationRepository.save(participation);
-    }
-
     private Bid buildBid(PlaceBidRequest request, Account user, AuctionSession session) {
         return Bid.builder()
                 .auctionSessionId(session.getId())
@@ -311,36 +296,25 @@ public class BidServiceImpl implements BidService {
     }
 
     private void releasePreviousLeaderAfterSuccessfulBid(
-            Wallet previousLeaderWallet,
+            String previousLeaderAccountId,
             BigDecimal amountToRelease,
             String sessionId
     ) {
-        if (previousLeaderWallet == null || amountToRelease == null) {
+        if (previousLeaderAccountId == null || amountToRelease == null) {
             return;
         }
 
         try {
-            previousLeaderWallet.unfreeze(amountToRelease);
-            walletRepository.save(previousLeaderWallet);
+            walletAtomicRepository.releaseFrozen(previousLeaderAccountId, amountToRelease);
         } catch (Exception e) {
             log.error(
                     "Failed to release previous leader wallet after successful bid. sessionId={}, leaderAccountId={}, amountToRelease={}",
                     sessionId,
-                    previousLeaderWallet.getAccountId(),
+                    previousLeaderAccountId,
                     amountToRelease,
                     e
             );
         }
-    }
-
-    private Wallet getPreviousLeaderWallet(AuctionSession session, Account user) {
-        if (session.getCurrentLeaderAccountId() == null) {
-            return null;
-        }
-        if (session.getCurrentLeaderAccountId().equals(user.getId())) {
-            return null;
-        }
-        return walletRepository.findByAccountId(session.getCurrentLeaderAccountId()).orElse(null);
     }
 
     private BigDecimal getPreviousLeaderAmountToRelease(AuctionSession session) {
@@ -424,31 +398,11 @@ public class BidServiceImpl implements BidService {
         return session.getEndTime();
     }
 
-    private WalletSnapshot snapshot(Wallet wallet) {
-        return new WalletSnapshot(
-                wallet.getAvailableBalance(),
-                wallet.getFrozenBalance()
-        );
-    }
-
     private ParticipationSnapshot snapshot(AuctionParticipation participation) {
         return new ParticipationSnapshot(
                 participation.getStatus(),
                 participation.getLastBidAmount()
         );
-    }
-
-    private void restoreWallet(Wallet wallet, WalletSnapshot snapshot) {
-        if (wallet == null || snapshot == null) {
-            return;
-        }
-
-        try {
-            wallet.restoreBalance(snapshot.availableBalance(), snapshot.frozenBalance());
-            walletRepository.save(wallet);
-        } catch (Exception rollbackEx) {
-            log.error("Failed to restore wallet state. accountId={}", wallet.getAccountId(), rollbackEx);
-        }
     }
 
     private void restoreParticipation(AuctionParticipation participation, ParticipationSnapshot snapshot) {
@@ -464,15 +418,15 @@ public class BidServiceImpl implements BidService {
         }
     }
 
-    private void deleteBidIfCreated(Bid bid) {
-        if (bid == null || bid.getId() == null) {
+    private void safeReleaseFrozen(String accountId, BigDecimal amount, String reason) {
+        if (accountId == null || amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
-
         try {
-            bidRepository.deleteById(bid.getId());
+            walletAtomicRepository.releaseFrozen(accountId, amount);
         } catch (Exception rollbackEx) {
-            log.error("Failed to delete bid history after failed bid flow. bidId={}", bid.getId(), rollbackEx);
+            log.error("Failed to rollback frozen wallet. accountId={}, amount={}, reason={}",
+                    accountId, amount, reason, rollbackEx);
         }
     }
 
@@ -525,15 +479,24 @@ public class BidServiceImpl implements BidService {
         );
     }
 
+    private void reportLeaderConsistency(AuctionSession session) {
+
+        try {
+            verifyLeaderConsistency(session);
+        } catch (Exception e) {
+            log.error(
+                    "Post-bid consistency check failed. sessionId={}, leaderId={}, currentPrice={}",
+                    session.getId(),
+                    session.getCurrentLeaderAccountId(),
+                    session.getCurrentPrice(),
+                    e
+            );
+        }
+    }
+
     private record ParticipationSnapshot(
             ParticipationStatus status,
             BigDecimal lastBidAmount
-    ) {
-    }
-
-    private record WalletSnapshot(
-            BigDecimal availableBalance,
-            BigDecimal frozenBalance
     ) {
     }
 }
