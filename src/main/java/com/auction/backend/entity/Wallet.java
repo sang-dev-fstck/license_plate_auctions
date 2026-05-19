@@ -99,16 +99,6 @@ public class Wallet extends BaseEntity {
 
         availableBalance = availableBalance.subtract(amount);
     }
-
-    public void restoreBalance(BigDecimal availableBalance, BigDecimal frozenBalance) {
-        this.availableBalance = availableBalance;
-        this.frozenBalance = frozenBalance;
-    }
-
-    public void deactivate() {
-        this.active = false;
-    }
-
     // ===== VALIDATION =====
 
     private void validatePositive(BigDecimal amount) {

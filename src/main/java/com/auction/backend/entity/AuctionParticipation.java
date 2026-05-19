@@ -27,7 +27,6 @@ public class AuctionParticipation extends BaseEntity {
 
     @Id
     private String id;
-
     private String auctionSessionId;
 
     private String accountId;
