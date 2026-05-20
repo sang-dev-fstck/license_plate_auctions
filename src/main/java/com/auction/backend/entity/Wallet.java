@@ -56,39 +56,6 @@ public class Wallet extends BaseEntity {
         availableBalance = availableBalance.add(amount);
     }
 
-    public void freeze(BigDecimal amount) {
-        validatePositive(amount);
-
-        if (availableBalance.compareTo(amount) < 0) {
-            throw new IllegalStateException("Insufficient balance");
-        }
-
-        this.availableBalance = this.availableBalance.subtract(amount);
-        this.frozenBalance = this.frozenBalance.add(amount);
-    }
-
-    public void unfreeze(BigDecimal amount) {
-        validatePositive(amount);
-
-        if (frozenBalance.compareTo(amount) < 0) {
-            throw new IllegalStateException("Insufficient frozen balance");
-        }
-
-        this.frozenBalance = this.frozenBalance.subtract(amount);
-        this.availableBalance = this.availableBalance.add(amount);
-    }
-
-    public void debitFrozen(BigDecimal amount) {
-        validateActive();
-        validatePositive(amount);
-
-        if (frozenBalance.compareTo(amount) < 0) {
-            throw new IllegalStateException("Insufficient frozen balance");
-        }
-
-        this.frozenBalance = this.frozenBalance.subtract(amount);
-    }
-
     public void withdraw(BigDecimal amount) {
         validateActive();
         validatePositive(amount);

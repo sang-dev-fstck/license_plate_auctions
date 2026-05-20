@@ -4,6 +4,7 @@ import com.auction.backend.dto.*;
 import com.auction.backend.service.AuctionSessionLifecycleService;
 import com.auction.backend.service.AuctionSessionQueryService;
 import com.auction.backend.service.AuctionSessionService;
+import com.auction.backend.service.AuctionSessionStatusHistoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ public class AuctionSessionController {
     private final AuctionSessionService auctionSessionService;
     private final AuctionSessionLifecycleService auctionSessionLifecycleService;
     private final AuctionSessionQueryService auctionSessionQueryService;
+    private final AuctionSessionStatusHistoryService auctionSessionStatusHistoryService;
 
     @PostMapping
     public ResponseEntity<AuctionSessionResponse> createSession(@RequestBody @Valid CreateAuctionSessionRequest request) {
@@ -69,5 +71,10 @@ public class AuctionSessionController {
     @GetMapping("/{id}/bids")
     public ResponseEntity<List<BidHistoryItemResponse>> getBidHistory(@PathVariable String id) {
         return ResponseEntity.ok(auctionSessionQueryService.getBidHistory(id));
+    }
+
+    @PostMapping("/status-history")
+    public ResponseEntity<PageResponse<AuctionSessionStatusHistoryResponse>> getStatusHistory(@RequestBody @Valid SearchSessionStatusHistoryRequest request) {
+        return ResponseEntity.ok(auctionSessionStatusHistoryService.getHistoryBySessionId(request));
     }
 }

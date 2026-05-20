@@ -5,18 +5,12 @@ import com.auction.backend.dto.SessionLifecycleRequest;
 import com.auction.backend.entity.AuctionParticipation;
 import com.auction.backend.entity.AuctionSession;
 import com.auction.backend.entity.LicensePlate;
-import com.auction.backend.entity.Wallet;
-import com.auction.backend.enums.AuctionSessionStatus;
-import com.auction.backend.enums.LicensePlateStatus;
-import com.auction.backend.enums.ParticipationStatus;
-import com.auction.backend.enums.VehicleType;
+import com.auction.backend.enums.*;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.mapper.AuctionSessionMapper;
-import com.auction.backend.repository.AuctionParticipationRepository;
-import com.auction.backend.repository.AuctionSessionRepository;
-import com.auction.backend.repository.LicensePlateRepository;
-import com.auction.backend.repository.WalletRepository;
+import com.auction.backend.repository.*;
 import com.auction.backend.service.AuctionSessionLifecycleService;
+import com.auction.backend.service.AuctionSessionStatusHistoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +18,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -34,18 +27,29 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     private final AuctionSessionRepository auctionSessionRepository;
     private final AuctionSessionMapper auctionSessionMapper;
     private final LicensePlateRepository licensePlateRepository;
-    private final WalletRepository walletRepository;
+    private final WalletAtomicRepository walletAtomicRepository;
     private final AuctionParticipationRepository auctionParticipationRepository;
+    private final AuctionSettlementBulkRepository auctionSettlementBulkRepository;
+    private final AuctionSessionStatusHistoryService statusHistoryService;
 
     @Override
     public AuctionSessionResponse activateSession(String sessionId) {
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
+        AuctionSessionStatus oldStatus = validSession.getStatus();
         if (!now.isBefore(validSession.getStartTime())
                 && now.isBefore(validSession.getEndTime())
                 && validSession.getStatus().equals(AuctionSessionStatus.SCHEDULED)) {
             validSession.setStatus(AuctionSessionStatus.ACTIVE);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            statusHistoryService.recordStatusChange(
+                    savedSession.getId(),
+                    oldStatus,
+                    savedSession.getStatus(),
+                    "Auto activate session by system",
+                    StatusChangedByType.SYSTEM,
+                    null
+            );
             return auctionSessionMapper.toResponse(savedSession);
         }
         throw new AppException("Điều kiện kích hoạt phiên đấu giá không hợp lệ");
@@ -55,6 +59,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     public AuctionSessionResponse pauseOrResumeSession(String sessionId, SessionLifecycleRequest request) {
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
+        AuctionSessionStatus oldStatus = validSession.getStatus();
         if (!now.isBefore(validSession.getStartTime())
                 && !now.isAfter(validSession.getEndTime())
                 && validSession.getStatus().equals(AuctionSessionStatus.ACTIVE)
@@ -64,6 +69,15 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setRemainingSecondsWhenPaused(remainingTimeBeforePause);
             validSession.setPauseReason(request.getReason());
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+
+            statusHistoryService.recordStatusChange(
+                    savedSession.getId(),
+                    oldStatus,
+                    savedSession.getStatus(),
+                    request.getReason(),
+                    StatusChangedByType.ADMIN, // hoặc ADMIN
+                    null
+            );
             return auctionSessionMapper.toResponse(savedSession);
         }
 
@@ -74,6 +88,14 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setEndTime(now.plusSeconds(validSession.getRemainingSecondsWhenPaused()));
             validSession.setRemainingSecondsWhenPaused(null);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            statusHistoryService.recordStatusChange(
+                    savedSession.getId(),
+                    oldStatus,
+                    savedSession.getStatus(),
+                    null,
+                    StatusChangedByType.ADMIN,
+                    null
+            );
             return auctionSessionMapper.toResponse(savedSession);
         }
         throw new AppException("Điều kiện ngừng phiên đấu giá không hợp lệ");
@@ -82,44 +104,34 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     @Override
     public AuctionSessionResponse failSession(String sessionId, SessionLifecycleRequest request) {
         AuctionSession validSession = getSessionBySessionId(sessionId);
-        LicensePlate validPlates = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
-
-        AuctionSessionStatus initialStatus = validSession.getStatus();
-        LicensePlateStatus initialPlateStatus = validPlates.getStatus();
-        BigDecimal initialPlatePrice = validPlates.getNextAuctionStartPrice();
-        boolean isCar = validPlates.getVehicleType().equals(VehicleType.CAR);
-
+        LicensePlate validPlate = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
+        AuctionSessionStatus oldStatus = validSession.getStatus();
+        List<AuctionParticipation> participations = auctionParticipationRepository.findByAuctionSessionId(sessionId);
         if (validSession.getStatus().equals(AuctionSessionStatus.ACTIVE)
                 || validSession.getStatus().equals(AuctionSessionStatus.PAUSED)
                 || validSession.getStatus().equals(AuctionSessionStatus.SCHEDULED)
         ) {
-
-            validSession.setStatus(AuctionSessionStatus.FAILED);
-            validSession.setFailureReason(request.getReason());
-            validPlates.setStatus(LicensePlateStatus.AVAILABLE);
-            if (isCar) {
-                validPlates.setNextAuctionStartPrice(BigDecimal.valueOf(400000000));
-            }
-
             try {
+                settleFailedSessionRefunds(validSession, validPlate, participations, request);
+                licensePlateRepository.save(validPlate);
                 AuctionSession savedSession = auctionSessionRepository.save(validSession);
-                licensePlateRepository.save(validPlates);
+                statusHistoryService.recordStatusChange(
+                        savedSession.getId(),
+                        oldStatus,
+                        savedSession.getStatus(),
+                        request.getReason(),
+                        StatusChangedByType.ADMIN,
+                        null
+                );
                 return auctionSessionMapper.toResponse(savedSession);
+            } catch (AppException e) {
+                throw e;
             } catch (Exception e) {
-                try {
-                    validSession.setStatus(initialStatus);
-                    validSession.setFailureReason(null);
-                    validPlates.setStatus(initialPlateStatus);
-                    validPlates.setNextAuctionStartPrice(initialPlatePrice);
-
-                    auctionSessionRepository.save(validSession);
-                    licensePlateRepository.save(validPlates);
-                } catch (Exception ex) {
-                    log.error("Failed to rollback");
-                }
+                log.error("Failed to settle failSession for sessionId={}", validSession.getId(), e);
+                throw new AppException("Không thể đánh dấu phiên đấu giá thất bại");
             }
         }
-        throw new AppException("Không thể cập nhật trạng thái fail của phiên đấu giá");
+        throw new AppException("Không thể đánh dấu phiên đấu giá thất bại");
     }
 
     @Override
@@ -127,6 +139,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
         LicensePlate validPlate = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
+        AuctionSessionStatus oldStatus = validSession.getStatus();
         String currentLeaderId = validSession.getCurrentLeaderAccountId();
         List<AuctionParticipation> participations = getAllParticipations(validSession.getId());
 
@@ -134,77 +147,132 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                 || now.isBefore(validSession.getEndTime())) {
             throw new AppException("Không thể kết thúc phiên đấu giá");
         }
-
-        validSession.setStatus(AuctionSessionStatus.ENDED);
-
-        List<Wallet> walletsToSave = new ArrayList<>();
-        List<AuctionParticipation> participationsToSave = new ArrayList<>();
-
-        if (currentLeaderId == null) {
-            validPlate.setStatus(LicensePlateStatus.AVAILABLE);
-
-            for (AuctionParticipation participation : participations) {
-                if (participation.getStatus().equals(ParticipationStatus.CONSUMED)) {
-                    throw new AppException("Data inconsistency !!!");
-                }
-
-                checkParticipationStatus(walletsToSave, participationsToSave, participation);
-            }
-        } else {
-            validPlate.setStatus(LicensePlateStatus.SOLD);
-            validSession.setWinnerAccountId(currentLeaderId);
-
-            Wallet winnerWallet = getWinnerWallet(currentLeaderId);
-            
-            if (winnerWallet.getFrozenBalance().compareTo(validSession.getCurrentPrice()) < 0) {
-                log.error(
-                        "Cannot end session due to inconsistent winner wallet. sessionId={}, winnerId={}, currentPrice={}, frozenBalance={}",
-                        validSession.getId(),
-                        currentLeaderId,
-                        validSession.getCurrentPrice(),
-                        winnerWallet.getFrozenBalance()
-                );
-
-                throw new AppException("Dữ liệu ví của người thắng không đồng bộ, không thể kết thúc phiên");
-            }
-
-            winnerWallet.debitFrozen(validSession.getCurrentPrice());
-            walletsToSave.add(winnerWallet);
-
-            for (AuctionParticipation participation : participations) {
-                if (currentLeaderId.equals(participation.getAccountId())) {
-                    continue;
-                }
-
-                checkParticipationStatus(walletsToSave, participationsToSave, participation);
-            }
-        }
-
         try {
-            walletRepository.saveAll(walletsToSave);
-
-            auctionParticipationRepository.saveAll(participationsToSave);
-
+            if (currentLeaderId == null) {
+                endSessionWithoutWinner(validSession, validPlate, participations);
+            } else {
+                endSessionWithWinner(currentLeaderId, validSession, validPlate, participations);
+            }
             licensePlateRepository.save(validPlate);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
-
+            statusHistoryService.recordStatusChange(
+                    savedSession.getId(),
+                    oldStatus,
+                    savedSession.getStatus(),
+                    "Auto end session by system",
+                    StatusChangedByType.SYSTEM,
+                    null
+            );
             return auctionSessionMapper.toResponse(savedSession);
+        } catch (AppException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to settle endSession for sessionId={}", validSession.getId(), e);
             throw new AppException("Không thể kết thúc phiên đấu giá");
         }
     }
 
-    private void checkParticipationStatus(List<Wallet> walletsToSave, List<AuctionParticipation> participationsToSave, AuctionParticipation participation) {
-        if (participation.getStatus().equals(ParticipationStatus.RESERVED)) {
-            Wallet wallet = walletRepository.findByAccountId(participation.getAccountId())
-                    .orElseThrow(() -> new AppException("Không tìm thấy ví"));
+    private void endSessionWithWinner(
+            String winnerId,
+            AuctionSession session,
+            LicensePlate plate,
+            List<AuctionParticipation> participations
+    ) {
+        if (winnerId == null || winnerId.isEmpty()) {
+            throw new AppException("Dữ liệu phiên đấu giá không đồng bộ: Không có leader");
+        }
+        session.setStatus(AuctionSessionStatus.ENDED);
+        session.setWinnerAccountId(winnerId);
+        plate.setStatus(LicensePlateStatus.SOLD);
+        List<AuctionParticipation> reserveParticipations = participations.stream()
+                .filter(p -> !winnerId.equals(p.getAccountId()))
+                .filter(p -> p.getStatus().equals(ParticipationStatus.RESERVED))
+                .toList();
 
-            wallet.unfreeze(participation.getDepositAmount());
-            walletsToSave.add(wallet);
+        walletAtomicRepository.debitFrozen(winnerId, session.getCurrentPrice());
+        auctionSettlementBulkRepository.refundReservedParticipants(reserveParticipations);
+    }
 
-            participation.setStatus(ParticipationStatus.REFUNDED);
-            participationsToSave.add(participation);
+    private void endSessionWithoutWinner(
+            AuctionSession session,
+            LicensePlate plate,
+            List<AuctionParticipation> participations
+    ) {
+        boolean hasConsumedParticipation = participations.stream()
+                .anyMatch(p -> p.getStatus().equals(ParticipationStatus.CONSUMED));
+
+        if (hasConsumedParticipation) {
+            throw new AppException("Dữ liệu phiên đấu giá không đồng bộ: có người đã bid nhưng không có leader");
+        }
+
+        session.setStatus(AuctionSessionStatus.ENDED);
+        plate.setStatus(LicensePlateStatus.AVAILABLE);
+        List<AuctionParticipation> reservedParticipants = participations.stream()
+                .filter(participation -> participation.getStatus() == ParticipationStatus.RESERVED)
+                .toList();
+        auctionSettlementBulkRepository.refundReservedParticipants(reservedParticipants);
+    }
+
+    private void settleFailedSessionRefunds(
+            AuctionSession session,
+            LicensePlate plate,
+            List<AuctionParticipation> participations,
+            SessionLifecycleRequest request
+    ) {
+        String currentLeaderId = session.getCurrentLeaderAccountId();
+        boolean isCar = plate.getVehicleType().equals(VehicleType.CAR);
+        boolean hasLeader = currentLeaderId != null && !currentLeaderId.isBlank();
+        boolean hasConsumerParticipation = participations.stream()
+                .anyMatch(p -> p.getStatus().equals(ParticipationStatus.CONSUMED));
+
+        if (session.getStatus().equals(AuctionSessionStatus.SCHEDULED)) {
+            if (hasLeader) {
+                throw new AppException("Lỗi bất đồng bộ : Tồn tại bidder khi phiên đấu giá chưa bắt đầu");
+            }
+            if (hasConsumerParticipation) {
+                throw new AppException("Dữ liệu không bộ : Phiên đấu giá có người đấu giá nhưng không có leader");
+            }
+            List<AuctionParticipation> reservedParticipation = participations.stream()
+                    .filter(p -> p.getStatus().equals(ParticipationStatus.RESERVED))
+                    .toList();
+            auctionSettlementBulkRepository.refundReservedParticipants(reservedParticipation);
+        } else if (session.getStatus().equals(AuctionSessionStatus.ACTIVE)
+                || session.getStatus().equals(AuctionSessionStatus.PAUSED)) {
+            if (hasLeader) {
+                AuctionParticipation participation = auctionParticipationRepository.findByAuctionSessionIdAndAccountId(session.getId(), currentLeaderId)
+                        .orElseThrow(() -> new AppException("Không tìm thấy participation của leader"));
+
+                if (participation.getLastBidAmount() == null
+                        || participation.getLastBidAmount().compareTo(session.getCurrentPrice()) != 0) {
+                    throw new AppException("Lỗi bất đồng bộ dữ liệu giữa participation và phiên đấu giá");
+                }
+                walletAtomicRepository.releaseFrozen(currentLeaderId, participation.getLastBidAmount());
+                participation.setStatus(ParticipationStatus.REFUNDED);
+                auctionParticipationRepository.save(participation);
+                List<AuctionParticipation> reservedParticipation = participations.stream()
+                        .filter(p -> !currentLeaderId.equals(p.getAccountId()))
+                        .filter(p -> p.getStatus().equals(ParticipationStatus.RESERVED))
+                        .toList();
+                auctionSettlementBulkRepository.refundReservedParticipants(reservedParticipation);
+            } else {
+                if (hasConsumerParticipation) {
+                    throw new AppException("Dữ liệu không bộ : Phiên đấu giá có người đấu giá nhưng không có leader");
+                }
+
+                List<AuctionParticipation> reservedParticipation = participations.stream()
+                        .filter(p -> p.getStatus().equals(ParticipationStatus.RESERVED))
+                        .toList();
+                auctionSettlementBulkRepository.refundReservedParticipants(reservedParticipation);
+            }
+
+        } else {
+            throw new AppException("Phiên đấu giá đang ở trạng thái không hợp lệ để fail");
+        }
+        session.setStatus(AuctionSessionStatus.FAILED);
+        session.setFailureReason(request.getReason());
+        plate.setStatus(LicensePlateStatus.AVAILABLE);
+        if (isCar) {
+            plate.setNextAuctionStartPrice(BigDecimal.valueOf(400000000));
         }
     }
 
@@ -233,11 +301,6 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             throw new AppException("Phiên đấu giá đã kết thúc");
         }
         return remainingTime;
-    }
-
-    private Wallet getWinnerWallet(String accountId) {
-        return walletRepository.findByAccountId(accountId)
-                .orElseThrow(() -> new AppException("Không tìm thấy ví của người chiến thắng phiên đấu giá"));
     }
 
     private List<AuctionParticipation> getAllParticipations(String auctionSessionId) {
