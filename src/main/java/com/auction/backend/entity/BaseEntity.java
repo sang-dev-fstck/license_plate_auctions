@@ -16,4 +16,5 @@ public abstract class BaseEntity {
 
     @LastModifiedDate // Tự động cập nhật thời gian khi có sửa đổi
     private LocalDateTime updatedAt;
+
 }

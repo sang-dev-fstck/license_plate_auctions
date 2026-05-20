@@ -24,5 +24,4 @@ public class AuctionSessionResponse {
     private BigDecimal currentPrice;
     private BigDecimal bidStepAmountSnapshot;
     private Long remainingSecondsWhenPaused;
-    private String failureReason;
 }

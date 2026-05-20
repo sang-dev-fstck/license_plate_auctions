@@ -5,14 +5,12 @@ import com.auction.backend.dto.SessionLifecycleRequest;
 import com.auction.backend.entity.AuctionParticipation;
 import com.auction.backend.entity.AuctionSession;
 import com.auction.backend.entity.LicensePlate;
-import com.auction.backend.enums.AuctionSessionStatus;
-import com.auction.backend.enums.LicensePlateStatus;
-import com.auction.backend.enums.ParticipationStatus;
-import com.auction.backend.enums.VehicleType;
+import com.auction.backend.enums.*;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.mapper.AuctionSessionMapper;
 import com.auction.backend.repository.*;
 import com.auction.backend.service.AuctionSessionLifecycleService;
+import com.auction.backend.service.AuctionSessionStatusHistoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,16 +30,26 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     private final WalletAtomicRepository walletAtomicRepository;
     private final AuctionParticipationRepository auctionParticipationRepository;
     private final AuctionSettlementBulkRepository auctionSettlementBulkRepository;
+    private final AuctionSessionStatusHistoryService statusHistoryService;
 
     @Override
     public AuctionSessionResponse activateSession(String sessionId) {
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
+        AuctionSessionStatus oldStatus = validSession.getStatus();
         if (!now.isBefore(validSession.getStartTime())
                 && now.isBefore(validSession.getEndTime())
                 && validSession.getStatus().equals(AuctionSessionStatus.SCHEDULED)) {
             validSession.setStatus(AuctionSessionStatus.ACTIVE);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            statusHistoryService.recordStatusChange(
+                    savedSession.getId(),
+                    oldStatus,
+                    savedSession.getStatus(),
+                    "Auto activate session by system",
+                    StatusChangedByType.SYSTEM,
+                    null
+            );
             return auctionSessionMapper.toResponse(savedSession);
         }
         throw new AppException("Điều kiện kích hoạt phiên đấu giá không hợp lệ");
@@ -51,6 +59,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     public AuctionSessionResponse pauseOrResumeSession(String sessionId, SessionLifecycleRequest request) {
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
+        AuctionSessionStatus oldStatus = validSession.getStatus();
         if (!now.isBefore(validSession.getStartTime())
                 && !now.isAfter(validSession.getEndTime())
                 && validSession.getStatus().equals(AuctionSessionStatus.ACTIVE)
@@ -60,6 +69,15 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setRemainingSecondsWhenPaused(remainingTimeBeforePause);
             validSession.setPauseReason(request.getReason());
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+
+            statusHistoryService.recordStatusChange(
+                    savedSession.getId(),
+                    oldStatus,
+                    savedSession.getStatus(),
+                    request.getReason(),
+                    StatusChangedByType.ADMIN, // hoặc ADMIN
+                    null
+            );
             return auctionSessionMapper.toResponse(savedSession);
         }
 
@@ -70,6 +88,14 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setEndTime(now.plusSeconds(validSession.getRemainingSecondsWhenPaused()));
             validSession.setRemainingSecondsWhenPaused(null);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            statusHistoryService.recordStatusChange(
+                    savedSession.getId(),
+                    oldStatus,
+                    savedSession.getStatus(),
+                    null,
+                    StatusChangedByType.ADMIN,
+                    null
+            );
             return auctionSessionMapper.toResponse(savedSession);
         }
         throw new AppException("Điều kiện ngừng phiên đấu giá không hợp lệ");
@@ -79,6 +105,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     public AuctionSessionResponse failSession(String sessionId, SessionLifecycleRequest request) {
         AuctionSession validSession = getSessionBySessionId(sessionId);
         LicensePlate validPlate = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
+        AuctionSessionStatus oldStatus = validSession.getStatus();
         List<AuctionParticipation> participations = auctionParticipationRepository.findByAuctionSessionId(sessionId);
         if (validSession.getStatus().equals(AuctionSessionStatus.ACTIVE)
                 || validSession.getStatus().equals(AuctionSessionStatus.PAUSED)
@@ -88,6 +115,14 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                 settleFailedSessionRefunds(validSession, validPlate, participations, request);
                 licensePlateRepository.save(validPlate);
                 AuctionSession savedSession = auctionSessionRepository.save(validSession);
+                statusHistoryService.recordStatusChange(
+                        savedSession.getId(),
+                        oldStatus,
+                        savedSession.getStatus(),
+                        request.getReason(),
+                        StatusChangedByType.ADMIN,
+                        null
+                );
                 return auctionSessionMapper.toResponse(savedSession);
             } catch (AppException e) {
                 throw e;
@@ -104,6 +139,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
         LicensePlate validPlate = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
+        AuctionSessionStatus oldStatus = validSession.getStatus();
         String currentLeaderId = validSession.getCurrentLeaderAccountId();
         List<AuctionParticipation> participations = getAllParticipations(validSession.getId());
 
@@ -119,6 +155,14 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             }
             licensePlateRepository.save(validPlate);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            statusHistoryService.recordStatusChange(
+                    savedSession.getId(),
+                    oldStatus,
+                    savedSession.getStatus(),
+                    "Auto end session by system",
+                    StatusChangedByType.SYSTEM,
+                    null
+            );
             return auctionSessionMapper.toResponse(savedSession);
         } catch (AppException e) {
             throw e;
