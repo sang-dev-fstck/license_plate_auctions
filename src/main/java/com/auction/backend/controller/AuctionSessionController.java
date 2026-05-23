@@ -80,6 +80,7 @@ public class AuctionSessionController {
 
     @GetMapping(value = "/{id}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamAuctionSession(@PathVariable String id) {
+        auctionSessionQueryService.validatePublicStreamAccess(id);
         return auctionSessionRealtimeService.subscribe(id);
     }
 }

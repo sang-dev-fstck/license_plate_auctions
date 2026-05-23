@@ -299,6 +299,7 @@ public class BidServiceImpl implements BidService {
 
         session.setCurrentPrice(request.getAmount());
         session.setCurrentLeaderAccountId(user.getId());
+        session.setCurrentLeaderNameSnapshot(user.getFullName());
         session.setEndTime(newEndTime);
     }
 
@@ -492,7 +493,7 @@ public class BidServiceImpl implements BidService {
                     .type(EventType.BID_ACCEPTED)
                     .auctionSessionId(session.getId())
                     .currentPrice(session.getCurrentPrice())
-                    .currentLeaderAccountId(session.getCurrentLeaderAccountId())
+                    .currentLeaderNameSnapshot(session.getCurrentLeaderNameSnapshot())
                     .endTime(session.getEndTime())
                     .status(session.getStatus())
                     .occurredAt(LocalDateTime.now())

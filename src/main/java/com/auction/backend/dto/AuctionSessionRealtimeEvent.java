@@ -16,7 +16,7 @@ public class AuctionSessionRealtimeEvent {
     private EventType type;
     private String auctionSessionId;
     private BigDecimal currentPrice;
-    private String currentLeaderAccountId;
+    private String currentLeaderNameSnapshot;
     private LocalDateTime endTime;
     private AuctionSessionStatus status;
     private LocalDateTime occurredAt;

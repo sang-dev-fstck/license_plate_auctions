@@ -299,7 +299,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                     .status(session.getStatus())
                     .type(eventType)
                     .endTime(session.getEndTime())
-                    .currentLeaderAccountId(session.getCurrentLeaderAccountId())
+                    .currentLeaderNameSnapshot(session.getCurrentLeaderNameSnapshot())
                     .currentPrice(session.getCurrentPrice())
                     .occurredAt(LocalDateTime.now())
                     .build();

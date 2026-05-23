@@ -10,4 +10,6 @@ public interface AuctionSessionQueryService {
     List<BidHistoryItemResponse> getBidHistory(String sessionId);
 
     PageResponse<CustomerAuctionSessionResponse> getCustomerSessions(SearchSessionRequest request);
+
+    void validatePublicStreamAccess(String sessionId);
 }
