@@ -7,5 +7,6 @@ public enum EventType {
     SESSION_ENDED,
     SESSION_FAILED,
     SESSION_STARTED,
-    CONNECTED
+    CONNECTED,
+    HEARTBEAT
 }

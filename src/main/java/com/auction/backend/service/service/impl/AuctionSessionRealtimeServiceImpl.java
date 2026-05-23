@@ -1,12 +1,15 @@
 package com.auction.backend.service.service.impl;
 
 import com.auction.backend.dto.AuctionSessionRealtimeEvent;
+import com.auction.backend.enums.EventType;
 import com.auction.backend.service.AuctionSessionRealtimeService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -81,6 +84,30 @@ public class AuctionSessionRealtimeServiceImpl implements AuctionSessionRealtime
 
         if (emitters.isEmpty()) {
             emittersBySessionId.remove(sessionId);
+        }
+    }
+
+    @Scheduled(fixedRate = 25000)
+    public void sendHeartBeatToAllEmitter() {
+        for (Map.Entry<String, List<SseEmitter>> entry : emittersBySessionId.entrySet()) {
+            String sessionId = entry.getKey();
+            List<SseEmitter> emitters = entry.getValue();
+            AuctionSessionRealtimeEvent event = AuctionSessionRealtimeEvent.builder()
+                    .type(EventType.HEARTBEAT)
+                    .auctionSessionId(sessionId)
+                    .occurredAt(LocalDateTime.now())
+                    .build();
+
+            for (SseEmitter emitter : emitters) {
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name(EventType.HEARTBEAT.name())
+                            .data(event));
+                } catch (Exception e) {
+                    removeEmitter(sessionId, emitter);
+                }
+            }
+
         }
     }
 }
