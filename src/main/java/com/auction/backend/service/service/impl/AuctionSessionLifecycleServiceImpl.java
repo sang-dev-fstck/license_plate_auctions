@@ -1,5 +1,6 @@
 package com.auction.backend.service.service.impl;
 
+import com.auction.backend.dto.AuctionSessionRealtimeEvent;
 import com.auction.backend.dto.AuctionSessionResponse;
 import com.auction.backend.dto.SessionLifecycleRequest;
 import com.auction.backend.entity.AuctionParticipation;
@@ -10,9 +11,11 @@ import com.auction.backend.exception.AppException;
 import com.auction.backend.mapper.AuctionSessionMapper;
 import com.auction.backend.repository.*;
 import com.auction.backend.service.AuctionSessionLifecycleService;
+import com.auction.backend.service.AuctionSessionRealtimeService;
 import com.auction.backend.service.AuctionSessionStatusHistoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -31,6 +34,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     private final AuctionParticipationRepository auctionParticipationRepository;
     private final AuctionSettlementBulkRepository auctionSettlementBulkRepository;
     private final AuctionSessionStatusHistoryService statusHistoryService;
+    private final AuctionSessionRealtimeService auctionSessionRealtimeService;
 
     @Override
     public AuctionSessionResponse activateSession(String sessionId) {
@@ -50,6 +54,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                     StatusChangedByType.SYSTEM,
                     null
             );
+            publishSessionStatusChangedEvent(savedSession, EventType.SESSION_STARTED);
             return auctionSessionMapper.toResponse(savedSession);
         }
         throw new AppException("Điều kiện kích hoạt phiên đấu giá không hợp lệ");
@@ -57,6 +62,14 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
 
     @Override
     public AuctionSessionResponse pauseOrResumeSession(String sessionId, SessionLifecycleRequest request) {
+        try {
+            return pauseOrResumeSessionOnce(sessionId, request);
+        } catch (OptimisticLockingFailureException e) {
+            throw new AppException("Có người vừa sửa trạng thái phiên đấu giá trước bạn, vui lòng thử lại");
+        }
+    }
+
+    private AuctionSessionResponse pauseOrResumeSessionOnce(String sessionId, SessionLifecycleRequest request) {
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
         AuctionSessionStatus oldStatus = validSession.getStatus();
@@ -69,7 +82,6 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setRemainingSecondsWhenPaused(remainingTimeBeforePause);
             validSession.setPauseReason(request.getReason());
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
-
             statusHistoryService.recordStatusChange(
                     savedSession.getId(),
                     oldStatus,
@@ -78,6 +90,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                     StatusChangedByType.ADMIN, // hoặc ADMIN
                     null
             );
+            publishSessionStatusChangedEvent(savedSession, EventType.SESSION_PAUSED);
             return auctionSessionMapper.toResponse(savedSession);
         }
 
@@ -96,9 +109,10 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                     StatusChangedByType.ADMIN,
                     null
             );
+            publishSessionStatusChangedEvent(savedSession, EventType.SESSION_RESUMED);
             return auctionSessionMapper.toResponse(savedSession);
         }
-        throw new AppException("Điều kiện ngừng phiên đấu giá không hợp lệ");
+        throw new AppException("Không thể ngừng/tiếp tục phiên đấu giá");
     }
 
     @Override
@@ -123,6 +137,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                         StatusChangedByType.ADMIN,
                         null
                 );
+                publishSessionStatusChangedEvent(savedSession, EventType.SESSION_FAILED);
                 return auctionSessionMapper.toResponse(savedSession);
             } catch (AppException e) {
                 throw e;
@@ -163,6 +178,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                     StatusChangedByType.SYSTEM,
                     null
             );
+            publishSessionStatusChangedEvent(savedSession, EventType.SESSION_ENDED);
             return auctionSessionMapper.toResponse(savedSession);
         } catch (AppException e) {
             throw e;
@@ -273,6 +289,23 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
         plate.setStatus(LicensePlateStatus.AVAILABLE);
         if (isCar) {
             plate.setNextAuctionStartPrice(BigDecimal.valueOf(400000000));
+        }
+    }
+
+    private void publishSessionStatusChangedEvent(AuctionSession session, EventType eventType) {
+        try {
+            AuctionSessionRealtimeEvent event = AuctionSessionRealtimeEvent.builder()
+                    .auctionSessionId(session.getId())
+                    .status(session.getStatus())
+                    .type(eventType)
+                    .endTime(session.getEndTime())
+                    .currentLeaderAccountId(session.getCurrentLeaderAccountId())
+                    .currentPrice(session.getCurrentPrice())
+                    .occurredAt(LocalDateTime.now())
+                    .build();
+            auctionSessionRealtimeService.publish(session.getId(), event);
+        } catch (Exception e) {
+            log.warn("Không thể publish event khi thay đổi trạng thái của phiên đấu giá  với id={}", session.getId());
         }
     }
 
