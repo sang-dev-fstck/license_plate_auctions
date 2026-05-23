@@ -1,14 +1,13 @@
 package com.auction.backend.controller;
 
 import com.auction.backend.dto.*;
-import com.auction.backend.service.AuctionSessionLifecycleService;
-import com.auction.backend.service.AuctionSessionQueryService;
-import com.auction.backend.service.AuctionSessionService;
-import com.auction.backend.service.AuctionSessionStatusHistoryService;
+import com.auction.backend.service.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -21,6 +20,7 @@ public class AuctionSessionController {
     private final AuctionSessionLifecycleService auctionSessionLifecycleService;
     private final AuctionSessionQueryService auctionSessionQueryService;
     private final AuctionSessionStatusHistoryService auctionSessionStatusHistoryService;
+    private final AuctionSessionRealtimeService auctionSessionRealtimeService;
 
     @PostMapping
     public ResponseEntity<AuctionSessionResponse> createSession(@RequestBody @Valid CreateAuctionSessionRequest request) {
@@ -73,8 +73,13 @@ public class AuctionSessionController {
         return ResponseEntity.ok(auctionSessionQueryService.getBidHistory(id));
     }
 
-    @PostMapping("/status-history")
+    @PostMapping("/status-history/search")
     public ResponseEntity<PageResponse<AuctionSessionStatusHistoryResponse>> getStatusHistory(@RequestBody @Valid SearchSessionStatusHistoryRequest request) {
         return ResponseEntity.ok(auctionSessionStatusHistoryService.getHistoryBySessionId(request));
+    }
+
+    @GetMapping(value = "/{id}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamAuctionSession(@PathVariable String id) {
+        return auctionSessionRealtimeService.subscribe(id);
     }
 }
