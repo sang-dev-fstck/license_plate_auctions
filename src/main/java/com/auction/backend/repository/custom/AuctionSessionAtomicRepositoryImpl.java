@@ -25,6 +25,7 @@ public class AuctionSessionAtomicRepositoryImpl implements AuctionSessionAtomicR
             AuctionSession session,
             BigDecimal newAmount,
             String newLeaderAccountId,
+            String newLeaderNameSnapshot,
             LocalDateTime newEndTime
     ) {
         LocalDateTime now = LocalDateTime.now();
@@ -42,6 +43,7 @@ public class AuctionSessionAtomicRepositoryImpl implements AuctionSessionAtomicR
         Update update = new Update()
                 .set("currentPrice", newAmount)
                 .set("currentLeaderAccountId", newLeaderAccountId)
+                .set("currentLeaderNameSnapshot", newLeaderNameSnapshot)
                 .set("endTime", newEndTime)
                 .inc("version", 1);
 

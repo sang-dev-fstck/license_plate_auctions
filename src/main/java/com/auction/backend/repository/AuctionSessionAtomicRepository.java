@@ -10,6 +10,7 @@ public interface AuctionSessionAtomicRepository {
             AuctionSession session,
             BigDecimal newAmount,
             String newLeaderAccountId,
+            String newLeaderNameSnapshot,
             LocalDateTime newEndTime
     );
 }

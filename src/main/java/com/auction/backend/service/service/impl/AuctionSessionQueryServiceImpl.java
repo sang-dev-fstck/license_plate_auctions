@@ -36,7 +36,6 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
 
         return AuctionSessionDetailResponse.builder()
                 .id(detail.getId())
-                .licensePlateId(detail.getLicensePlateId())
                 .licensePlateNumber(detail.getLicensePlateNumber())
                 .categoryName(detail.getCategoryName())
                 .provinceName(detail.getProvinceName())
@@ -47,9 +46,7 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
                 .startingPrice(detail.getStartingPrice())
                 .currentPrice(detail.getCurrentPrice())
                 .bidStepAmountSnapshot(detail.getBidStepAmountSnapshot())
-                .currentLeaderAccountId(detail.getCurrentLeaderAccountId())
                 .currentLeaderName(detail.getCurrentLeaderName())
-                .winnerAccountId(detail.getWinnerAccountId())
                 .winnerName(detail.getWinnerName())
                 .pauseReason(detail.getPauseReason())
                 .failureReason(detail.getFailureReason())

@@ -293,6 +293,7 @@ public class BidServiceImpl implements BidService {
                 session,
                 request.getAmount(),
                 user.getId(),
+                user.getFullName(),
                 newEndTime
         );
 
