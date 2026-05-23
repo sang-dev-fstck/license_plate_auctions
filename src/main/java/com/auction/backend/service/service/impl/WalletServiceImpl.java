@@ -52,7 +52,7 @@ public class WalletServiceImpl implements WalletService {
         String accountId = wallet.getAccountId();
         walletAtomicRepository.freezeAvailable(accountId, freezeRequest.getAmount());
         Wallet updatedWallet = walletRepository.findByAccountId(accountId)
-                .orElseThrow(() -> new AppException("Không tìm thấy ví"));
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy ví"));
         long end = System.currentTimeMillis();
         log.info("Freeze completed in {} ms", (end - start));
         return walletMapper.toResponse(updatedWallet);
@@ -65,9 +65,9 @@ public class WalletServiceImpl implements WalletService {
         }
         String username = authentication.getName();
         Account account = accountRepository.findByEmail(username)
-                .orElseThrow(() -> new AppException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy người dùng"));
         String id = account.getId();
         return walletRepository.findByAccountId(id)
-                .orElseThrow(() -> new AppException("Không tìm thấy ví"));
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy ví"));
     }
 }

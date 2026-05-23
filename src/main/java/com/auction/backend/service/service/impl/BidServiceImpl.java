@@ -57,7 +57,7 @@ public class BidServiceImpl implements BidService {
         Account user = currentAccountProvider.getCurrentAccount();
 
         AuctionSession session = auctionSessionRepository.findById(request.getAuctionSessionId())
-                .orElseThrow(() -> new AppException("Phiên đấu giá không hợp lệ hoặc không tồn tại"));
+                .orElseThrow(() -> AppException.notFound("Phiên đấu giá không hợp lệ hoặc không tồn tại"));
 
         validateSessionCanBid(session);
 

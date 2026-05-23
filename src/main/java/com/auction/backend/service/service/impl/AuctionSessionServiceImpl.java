@@ -33,7 +33,7 @@ public class AuctionSessionServiceImpl implements AuctionSessionService {
     public AuctionSessionResponse createSession(CreateAuctionSessionRequest request) {
         checkTime(request.getStartTime());
         LicensePlate plate = licensePlateRepository.findById(request.getLicensePlateId())
-                .orElseThrow(() -> new AppException("Không tìm thấy biển số"));
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy biển số"));
 
         if (plate.getStatus() != LicensePlateStatus.AVAILABLE) {
             throw new AppException("Biển số không ở trạng thái có thể tạo phiên đấu giá");

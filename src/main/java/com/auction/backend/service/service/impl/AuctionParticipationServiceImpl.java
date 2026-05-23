@@ -35,7 +35,7 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
         Account user = currentAccountProvider.getCurrentAccount();
 
         AuctionSession session = auctionSessionRepository.findById(request.getAuctionSessionId())
-                .orElseThrow(() -> new AppException("Auction Session Not Found"));
+                .orElseThrow(() -> AppException.notFound("Auction Session Not Found"));
 
         validateSessionCanReserve(session);
         BigDecimal depositAmount = session.getStartingPrice();

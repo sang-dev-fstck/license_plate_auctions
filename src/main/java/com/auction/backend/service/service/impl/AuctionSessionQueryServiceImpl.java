@@ -33,7 +33,7 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
     public AuctionSessionDetailResponse getSessionDetail(String sessionId) {
         AuctionSessionDetailReadModel detail =
                 auctionSessionReadRepository.findSessionDetailById(sessionId)
-                        .orElseThrow(() -> new AppException("Không tìm thấy phiên đấu giá"));
+                        .orElseThrow(() -> AppException.notFound("Không tìm thấy phiên đấu giá"));
 
         return AuctionSessionDetailResponse.builder()
                 .id(detail.getId())
@@ -85,9 +85,7 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
 
     @Override
     public void validatePublicStreamAccess(String sessionId) {
-        AuctionSession session = auctionSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new AppException("Không tìm thấy phiên đấu giá"));
-
+        AuctionSession session = getSession(sessionId);
         if (!isPublicVisibleStatus(session.getStatus())) {
             throw new AppException("Phiên đấu giá không khả dụng để theo dõi");
         }
@@ -103,6 +101,6 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
 
     private AuctionSession getSession(String sessionId) {
         return auctionSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new AppException("Không tìm thấy phiên đấu giá"));
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy phiên đấu giá"));
     }
 }

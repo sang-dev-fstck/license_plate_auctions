@@ -51,7 +51,7 @@ public class LicensePlateServiceImpl implements LicensePlateService {
         }
 
         Province province = provinceRepository.findFirstByLocalSymbolsContaining(localSymbols)
-                .orElseThrow(() -> new AppException("Province not found!"));
+                .orElseThrow(() -> AppException.notFound("Province not found!"));
 
         PlateClassificationResult classificationResult = classificationService.classify(serial);
 
@@ -69,7 +69,7 @@ public class LicensePlateServiceImpl implements LicensePlateService {
         entity.setCategoryId(classificationResult.getCategoryId());
         entity.setCategoryName(classificationResult.getCategoryName());
         entity.setTags(classificationResult.getTags());
-        
+
         LicensePlate savedEntity = licensePlateRepository.save(entity);
         return mapper.toResponse(savedEntity);
     }
