@@ -216,6 +216,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                 endSessionWithWinner(currentLeaderId, validSession, validPlate, participations);
             }
             licensePlateRepository.save(validPlate);
+            validSession.setEndingClaimedAt(null);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
             statusHistoryService.recordStatusChange(
                     savedSession.getId(),
