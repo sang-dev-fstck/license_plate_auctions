@@ -35,6 +35,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     private final AuctionSettlementBulkRepository auctionSettlementBulkRepository;
     private final AuctionSessionStatusHistoryService statusHistoryService;
     private final AuctionSessionRealtimeService auctionSessionRealtimeService;
+    private final AuctionSessionLifecycleAtomicRepository auctionSessionLifecycleAtomicRepository;
 
     @Override
     public AuctionSessionResponse activateSession(String sessionId) {

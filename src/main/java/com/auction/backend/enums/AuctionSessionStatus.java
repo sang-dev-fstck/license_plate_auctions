@@ -6,5 +6,6 @@ public enum AuctionSessionStatus {
     PAUSED,
     ENDED,
     FAILED,
-    DRAFT
+    DRAFT,
+    ENDING
 }
