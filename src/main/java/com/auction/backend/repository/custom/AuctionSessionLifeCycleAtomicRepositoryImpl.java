@@ -23,11 +23,11 @@ public class AuctionSessionLifeCycleAtomicRepositoryImpl implements AuctionSessi
         Query query = new Query();
         query.addCriteria(Criteria.where("_id").is(sessionId));
         query.addCriteria(Criteria.where("status").is(AuctionSessionStatus.ACTIVE));
-        query.addCriteria(Criteria.where("endTime").gt(now));
+        query.addCriteria(Criteria.where("endTime").lte(now));
 
         Update update = new Update()
                 .set("status", AuctionSessionStatus.ENDING)
-                .set("version", 1);
+                .inc("version", 1);
 
         UpdateResult result = mongoTemplate.updateFirst(query, update, AuctionSession.class);
         return result.getModifiedCount() == 1;

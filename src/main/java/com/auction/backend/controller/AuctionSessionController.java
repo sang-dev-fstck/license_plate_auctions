@@ -58,9 +58,11 @@ public class AuctionSessionController {
 
     @PatchMapping("/{id}/end")
     public ResponseEntity<AuctionSessionResponse> endSession(
-            @PathVariable String id
+            @PathVariable String id,
+            @RequestBody @Valid SessionLifecycleRequest request
+
     ) {
-        return ResponseEntity.ok(auctionSessionLifecycleService.endSession(id));
+        return ResponseEntity.ok(auctionSessionLifecycleService.endSession(id, request));
     }
 
     @GetMapping("/{id}")

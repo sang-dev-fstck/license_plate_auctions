@@ -35,7 +35,6 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     private final AuctionSettlementBulkRepository auctionSettlementBulkRepository;
     private final AuctionSessionStatusHistoryService statusHistoryService;
     private final AuctionSessionRealtimeService auctionSessionRealtimeService;
-    private final AuctionSessionLifecycleAtomicRepository auctionSessionLifecycleAtomicRepository;
 
     @Override
     public AuctionSessionResponse activateSession(String sessionId) {
@@ -151,7 +150,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     }
 
     @Override
-    public AuctionSessionResponse endSession(String sessionId) {
+    public AuctionSessionResponse endSession(String sessionId, SessionLifecycleRequest request) {
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
         LicensePlate validPlate = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
@@ -175,12 +174,50 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                     savedSession.getId(),
                     oldStatus,
                     savedSession.getStatus(),
+                    request.getReason(),
+                    StatusChangedByType.ADMIN,
+                    null
+            );
+            publishSessionStatusChangedEvent(savedSession, EventType.SESSION_ENDED);
+            return auctionSessionMapper.toResponse(savedSession);
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to settle endSession for sessionId={}", validSession.getId(), e);
+            throw new AppException("Không thể kết thúc phiên đấu giá");
+        }
+    }
+
+    @Override
+    public void completeEndingSession(String sessionId) {
+        LocalDateTime now = LocalDateTime.now();
+        AuctionSession validSession = getSessionBySessionId(sessionId);
+        LicensePlate validPlate = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
+        AuctionSessionStatus oldStatus = validSession.getStatus();
+        String currentLeaderId = validSession.getCurrentLeaderAccountId();
+        List<AuctionParticipation> participations = getAllParticipations(validSession.getId());
+
+        if (!validSession.getStatus().equals(AuctionSessionStatus.ENDING)
+                || now.isBefore(validSession.getEndTime())) {
+            throw new AppException("Không thể kết thúc phiên đấu giá");
+        }
+        try {
+            if (currentLeaderId == null) {
+                endSessionWithoutWinner(validSession, validPlate, participations);
+            } else {
+                endSessionWithWinner(currentLeaderId, validSession, validPlate, participations);
+            }
+            licensePlateRepository.save(validPlate);
+            AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            statusHistoryService.recordStatusChange(
+                    savedSession.getId(),
+                    oldStatus,
+                    savedSession.getStatus(),
                     "Auto end session by system",
                     StatusChangedByType.SYSTEM,
                     null
             );
             publishSessionStatusChangedEvent(savedSession, EventType.SESSION_ENDED);
-            return auctionSessionMapper.toResponse(savedSession);
         } catch (AppException e) {
             throw e;
         } catch (Exception e) {
