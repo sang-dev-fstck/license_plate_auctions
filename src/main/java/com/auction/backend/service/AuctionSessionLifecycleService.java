@@ -12,5 +12,5 @@ public interface AuctionSessionLifecycleService {
 
     AuctionSessionResponse endSession(String sessionId, SessionLifecycleRequest request);
 
-    void completeEndingSession(String sessionId);
+    void autoEndSession(String sessionId);
 }
