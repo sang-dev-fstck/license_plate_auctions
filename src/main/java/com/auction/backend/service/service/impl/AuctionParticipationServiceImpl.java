@@ -9,6 +9,7 @@ import com.auction.backend.enums.AuctionSessionStatus;
 import com.auction.backend.enums.ParticipationStatus;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.AuctionParticipationRepository;
+import com.auction.backend.repository.AuctionSessionAtomicRepository;
 import com.auction.backend.repository.AuctionSessionRepository;
 import com.auction.backend.repository.WalletAtomicRepository;
 import com.auction.backend.security.CurrentAccountProvider;
@@ -29,6 +30,7 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
     private final WalletAtomicRepository walletAtomicRepository;
     private final AuctionParticipationRepository auctionParticipationRepository;
     private final CurrentAccountProvider currentAccountProvider;
+    private final AuctionSessionAtomicRepository auctionSessionAtomicRepository;
 
     @Override
     public JoinAuctionSessionResponse joinAuctionSession(JoinAuctionSessionRequest request) {
@@ -44,7 +46,10 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
             throw new AppException("Phiên đấu giá chưa có giá khởi điểm hợp lệ");
         }
         boolean walletAdjusted = false;
+        boolean sessionReserveCountAdjusted = false;
         try {
+            auctionSessionAtomicRepository.advanceReserve(session);
+            sessionReserveCountAdjusted = true;
             walletAtomicRepository.freezeAvailable(user.getId(), depositAmount);
             walletAdjusted = true;
 
@@ -60,6 +65,9 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
             if (walletAdjusted) {
                 safeReleaseFrozen(user.getId(), depositAmount, "rollback duplicate reserve participation");
             }
+            if (sessionReserveCountAdjusted) {
+                safeRollbackReserve(session, "rollback duplicate reserve participation");
+            }
             throw AppException.conflict(
                     "auctionSessionId",
                     "Bạn đã tham gia phiên đấu giá này"
@@ -68,10 +76,16 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
             if (walletAdjusted) {
                 safeReleaseFrozen(user.getId(), depositAmount, "rollback reserve participation business error");
             }
+            if (sessionReserveCountAdjusted) {
+                safeRollbackReserve(session, "rollback duplicate reserve participation business errror");
+            }
             throw e;
         } catch (Exception e) {
             if (walletAdjusted) {
                 safeReleaseFrozen(user.getId(), depositAmount, "rollback reserve participation unexpected error");
+            }
+            if (sessionReserveCountAdjusted) {
+                safeRollbackReserve(session, "rollback duplicate reserve participation unexpected error");
             }
             log.error("Failed to reserve auction session. sessionId={}, accountId={}",
                     session.getId(),
@@ -123,4 +137,20 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
 
     }
 
+    private void safeRollbackReserve(AuctionSession session, String reason) {
+        if (session == null || session.getId() == null) {
+            return;
+        }
+
+        try {
+            auctionSessionAtomicRepository.rollbackReserve(session);
+        } catch (Exception rollbackEx) {
+            log.error(
+                    "Failed to rollback reservedCount. sessionId={}, reason={}",
+                    session.getId(),
+                    reason,
+                    rollbackEx
+            );
+        }
+    }
 }

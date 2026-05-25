@@ -2,6 +2,7 @@ package com.auction.backend.repository.custom;
 
 import com.auction.backend.entity.AuctionSession;
 import com.auction.backend.enums.AuctionSessionStatus;
+import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.AuctionSessionAtomicRepository;
 import com.mongodb.client.result.UpdateResult;
 import lombok.RequiredArgsConstructor;
@@ -55,4 +56,45 @@ public class AuctionSessionAtomicRepositoryImpl implements AuctionSessionAtomicR
             );
         }
     }
+
+    @Override
+    public void advanceReserve(AuctionSession session) {
+        LocalDateTime now = LocalDateTime.now();
+        Query query = new Query();
+        query.addCriteria(Criteria.where("_id").is(session.getId()));
+        query.addCriteria(Criteria.where("status").is(AuctionSessionStatus.SCHEDULED));
+        query.addCriteria(Criteria.where("startTime").gt(now));
+
+        Update update = new Update()
+                .inc("reservedCount", 1)
+                .inc("version", 1);
+
+        UpdateResult result = mongoTemplate.updateFirst(query, update, AuctionSession.class);
+
+        if (result.getModifiedCount() != 1) {
+            throw new AppException(
+                    "Auction session has been started by scheduler"
+            );
+        }
+    }
+
+    @Override
+    public void rollbackReserve(AuctionSession session) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("_id").is(session.getId()));
+        query.addCriteria(Criteria.where("reservedCount").gt(0));
+
+        Update update = new Update()
+                .inc("reservedCount", -1)
+                .inc("version", 1);
+
+        UpdateResult result = mongoTemplate.updateFirst(query, update, AuctionSession.class);
+
+        if (result.getModifiedCount() != 1) {
+            throw new AppException(
+                    "Fail to rollback reserve"
+            );
+        }
+    }
+
 }

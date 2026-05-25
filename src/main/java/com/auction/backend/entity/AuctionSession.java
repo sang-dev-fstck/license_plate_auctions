@@ -73,6 +73,7 @@ public class AuctionSession extends BaseEntity {
 
     private LocalDateTime pausedAt;
     private Long remainingSecondsWhenPaused;
+    private Long reservedCount;
     @Version
     private Long version;
 }

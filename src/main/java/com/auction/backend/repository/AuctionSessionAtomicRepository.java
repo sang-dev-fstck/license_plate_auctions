@@ -13,4 +13,8 @@ public interface AuctionSessionAtomicRepository {
             String newLeaderNameSnapshot,
             LocalDateTime newEndTime
     );
+
+    void advanceReserve(AuctionSession session);
+
+    void rollbackReserve(AuctionSession session);
 }

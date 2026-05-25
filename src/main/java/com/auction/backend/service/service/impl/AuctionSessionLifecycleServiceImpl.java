@@ -40,10 +40,34 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     public AuctionSessionResponse activateSession(String sessionId) {
         LocalDateTime now = LocalDateTime.now();
         AuctionSession validSession = getSessionBySessionId(sessionId);
+        LicensePlate validPlate = getLicensePlateByLicensePlateId(validSession.getLicensePlateId());
         AuctionSessionStatus oldStatus = validSession.getStatus();
         if (!now.isBefore(validSession.getStartTime())
                 && now.isBefore(validSession.getEndTime())
                 && validSession.getStatus().equals(AuctionSessionStatus.SCHEDULED)) {
+
+            if (validSession.getReservedCount() == null || validSession.getReservedCount() == 0) {
+                validSession.setStatus(AuctionSessionStatus.ENDED);
+                validPlate.setStatus(LicensePlateStatus.AVAILABLE);
+                try {
+                    licensePlateRepository.save(validPlate);
+                    AuctionSession savedSession = auctionSessionRepository.save(validSession);
+                    statusHistoryService.recordStatusChange(
+                            savedSession.getId(),
+                            oldStatus,
+                            savedSession.getStatus(),
+                            "Auto end session by system for there is no reservation",
+                            StatusChangedByType.SYSTEM,
+                            null
+                    );
+                    publishSessionStatusChangedEvent(savedSession, EventType.SESSION_ENDED);
+                    return auctionSessionMapper.toResponse(savedSession);
+                } catch (Exception e) {
+                    log.error("End session fail with id={}", sessionId, e);
+                    throw new AppException("Không thể tự động kết thúc phiên đấu giá không có người tham gia");
+                }
+            }
+
             validSession.setStatus(AuctionSessionStatus.ACTIVE);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
             statusHistoryService.recordStatusChange(
