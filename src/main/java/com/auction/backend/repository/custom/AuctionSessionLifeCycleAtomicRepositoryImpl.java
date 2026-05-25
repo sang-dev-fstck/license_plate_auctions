@@ -27,7 +27,9 @@ public class AuctionSessionLifeCycleAtomicRepositoryImpl implements AuctionSessi
 
         Update update = new Update()
                 .set("status", AuctionSessionStatus.ENDING)
+                .set("endingClaimedAt", now)
                 .inc("version", 1);
+
 
         UpdateResult result = mongoTemplate.updateFirst(query, update, AuctionSession.class);
         return result.getModifiedCount() == 1;

@@ -42,10 +42,27 @@ public class AuctionSessionScheduler {
         for (AuctionSession session : sessions) {
             try {
                 auctionSessionLifecycleService.autoEndSession(session.getId());
-                log.info("Session ended :{}", session.getId());
+                log.info("Auto end processed for sessionId={}", session.getId());
             } catch (Exception e) {
                 log.error("Cannot auto end sessionId={}", session.getId(), e);
             }
+        }
+    }
+
+    @Scheduled(fixedDelay = 60000)
+    public void detectStuckEndingSessions() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime cutOff = now.minusMinutes(5);
+        List<AuctionSession> sessions = auctionSessionRepository.findByStatusAndEndingClaimedAtBefore(AuctionSessionStatus.ENDING, cutOff);
+        for (AuctionSession session : sessions) {
+            log.error(
+                    "Auction session stuck in ENDING. Manual review required. sessionId={}, licensePlateId={}, currentLeaderId={}, currentPrice={}, endingClaimedAt={}",
+                    session.getId(),
+                    session.getLicensePlateId(),
+                    session.getCurrentLeaderAccountId(),
+                    session.getCurrentPrice(),
+                    session.getEndingClaimedAt()
+            );
         }
     }
 }

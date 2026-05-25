@@ -33,6 +33,10 @@ import java.util.List;
         @CompoundIndex(
                 name = "idx_session_status_plate_start_time",
                 def = "{'status': 1, 'licensePlateNumber': 1, 'startTime': 1}"
+        ),
+        @CompoundIndex(
+                name = "idx_session_status_ending_claimed_at",
+                def = "{'status': 1, 'endingClaimedAt': 1}"
         )
 })
 
@@ -72,7 +76,10 @@ public class AuctionSession extends BaseEntity {
     private String failureReason;
 
     private LocalDateTime pausedAt;
+    
     private Long remainingSecondsWhenPaused;
+    private LocalDateTime endingClaimedAt;
+
     private Long reservedCount;
     @Version
     private Long version;

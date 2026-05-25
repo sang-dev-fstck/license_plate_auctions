@@ -17,4 +17,9 @@ public interface AuctionSessionRepository extends MongoRepository<AuctionSession
 
     List<AuctionSession> findByStatusAndEndTimeLessThanEqual(AuctionSessionStatus status, LocalDateTime endTime);
 
+    List<AuctionSession> findByStatusAndEndingClaimedAtBefore(
+            AuctionSessionStatus status,
+            LocalDateTime cutoff
+    );
+    
 }
