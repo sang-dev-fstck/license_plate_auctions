@@ -10,5 +10,7 @@ public interface AuctionSessionLifecycleService {
 
     AuctionSessionResponse failSession(String sessionId, SessionLifecycleRequest request);
 
-    AuctionSessionResponse endSession(String sessionId);
+    AuctionSessionResponse endSession(String sessionId, SessionLifecycleRequest request);
+
+    void autoEndSession(String sessionId);
 }

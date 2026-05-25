@@ -110,7 +110,7 @@ public class AuthServiceImpl implements AuthService {
         String email = authentication.getName();
 
         Account account = accountRepository.findByEmail(email)
-                .orElseThrow(() -> new AppException("Không tìm thấy tài khoản hiện tại"));
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy tài khoản hiện tại"));
 
         return new CurrentUserResponse(
                 account.getId(),

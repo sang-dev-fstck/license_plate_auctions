@@ -48,7 +48,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public CategoryResponse updateCategory(String id, UpdateCategoryRequest category) {
         Category existingCategory = cateRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy category với ID: " + id));
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy category với ID: " + id));
         if (category.getCategoryName() != null
                 && !existingCategory.getCategoryName().equals(category.getCategoryName())
                 && cateRepo.existsByCategoryName(category.getCategoryName())) {
@@ -63,7 +63,7 @@ public class CategoryServiceImpl implements CategoryService {
         try {
             return cateRepo.save(entity);
         } catch (DuplicateKeyException ex) {
-            throw new AppException("Category name already exists");
+            throw AppException.conflict("categoryName", "Category name already exists");
         }
     }
 }

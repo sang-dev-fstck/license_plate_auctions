@@ -213,7 +213,6 @@ public class AuctionSessionReadRepositoryImpl implements AuctionSessionReadRepos
     private AggregationOperation projectSessionDetail() {
         return raw(new Document("$project",
                 new Document("id", new Document("$toString", "$_id"))
-                        .append("licensePlateId", 1)
                         .append("licensePlateNumber", 1)
                         .append("provinceName", "$licensePlate.provinceName")
                         .append("categoryName", "$licensePlate.categoryName")
@@ -224,9 +223,7 @@ public class AuctionSessionReadRepositoryImpl implements AuctionSessionReadRepos
                         .append("startingPrice", 1)
                         .append("currentPrice", 1)
                         .append("bidStepAmountSnapshot", 1)
-                        .append("currentLeaderAccountId", 1)
                         .append("currentLeaderName", "$currentLeader.fullName")
-                        .append("winnerAccountId", 1)
                         .append("winnerName", "$winner.fullName")
                         .append("pauseReason", 1)
                         .append("failureReason", 1)

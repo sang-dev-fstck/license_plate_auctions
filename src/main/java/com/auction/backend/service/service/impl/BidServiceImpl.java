@@ -1,15 +1,18 @@
 package com.auction.backend.service.service.impl;
 
 import com.auction.backend.common.MoneyUtils;
+import com.auction.backend.dto.AuctionSessionRealtimeEvent;
 import com.auction.backend.dto.PlaceBidRequest;
 import com.auction.backend.dto.PlaceBidResponse;
 import com.auction.backend.entity.*;
 import com.auction.backend.enums.AuctionSessionStatus;
 import com.auction.backend.enums.BidStatus;
+import com.auction.backend.enums.EventType;
 import com.auction.backend.enums.ParticipationStatus;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.*;
 import com.auction.backend.security.CurrentAccountProvider;
+import com.auction.backend.service.AuctionSessionRealtimeService;
 import com.auction.backend.service.BidService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +34,7 @@ public class BidServiceImpl implements BidService {
     private final AuctionSessionRepository auctionSessionRepository;
     private final AuctionParticipationRepository auctionParticipationRepository;
     private final AuctionSessionAtomicRepository auctionSessionAtomicRepository;
+    private final AuctionSessionRealtimeService auctionSessionRealtimeService;
 
     @Override
     public PlaceBidResponse placeBid(PlaceBidRequest request) {
@@ -53,7 +57,7 @@ public class BidServiceImpl implements BidService {
         Account user = currentAccountProvider.getCurrentAccount();
 
         AuctionSession session = auctionSessionRepository.findById(request.getAuctionSessionId())
-                .orElseThrow(() -> new AppException("Phiên đấu giá không hợp lệ hoặc không tồn tại"));
+                .orElseThrow(() -> AppException.notFound("Phiên đấu giá không hợp lệ hoặc không tồn tại"));
 
         validateSessionCanBid(session);
 
@@ -133,6 +137,7 @@ public class BidServiceImpl implements BidService {
                 session.getId()
         );
 
+        publishBidAcceptedEvent(session);
         return getBidResponse(request, session, bid);
     }
 
@@ -181,7 +186,7 @@ public class BidServiceImpl implements BidService {
         }
         reportLeaderConsistency(session);
         Bid bid = saveBidHistoryAfterAccepted(request, user, session);
-
+        publishBidAcceptedEvent(session);
         return getBidResponse(request, session, bid);
     }
 
@@ -232,6 +237,7 @@ public class BidServiceImpl implements BidService {
                 session.getId()
         );
         Bid bid = saveBidHistoryAfterAccepted(request, user, session);
+        publishBidAcceptedEvent(session);
         return getBidResponse(request, session, bid);
     }
 
@@ -287,11 +293,13 @@ public class BidServiceImpl implements BidService {
                 session,
                 request.getAmount(),
                 user.getId(),
+                user.getFullName(),
                 newEndTime
         );
 
         session.setCurrentPrice(request.getAmount());
         session.setCurrentLeaderAccountId(user.getId());
+        session.setCurrentLeaderNameSnapshot(user.getFullName());
         session.setEndTime(newEndTime);
     }
 
@@ -477,6 +485,23 @@ public class BidServiceImpl implements BidService {
                 currentPrice,
                 frozenBalance
         );
+    }
+
+    private void publishBidAcceptedEvent(AuctionSession session) {
+        try {
+            AuctionSessionRealtimeEvent event = AuctionSessionRealtimeEvent.builder()
+                    .type(EventType.BID_ACCEPTED)
+                    .auctionSessionId(session.getId())
+                    .currentPrice(session.getCurrentPrice())
+                    .currentLeaderNameSnapshot(session.getCurrentLeaderNameSnapshot())
+                    .endTime(session.getEndTime())
+                    .status(session.getStatus())
+                    .occurredAt(LocalDateTime.now())
+                    .build();
+            auctionSessionRealtimeService.publish(session.getId(), event);
+        } catch (Exception e) {
+            log.warn("Failed to publish bid accepted event. sessionId={}", session.getId());
+        }
     }
 
     private void reportLeaderConsistency(AuctionSession session) {

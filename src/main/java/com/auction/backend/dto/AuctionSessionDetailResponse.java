@@ -14,7 +14,6 @@ import java.util.List;
 @Builder
 public class AuctionSessionDetailResponse {
     private String id;
-    private String licensePlateId;
     private String licensePlateNumber;
     private String provinceName;
     private String categoryName;
@@ -25,9 +24,7 @@ public class AuctionSessionDetailResponse {
     private BigDecimal startingPrice;
     private BigDecimal currentPrice;
     private BigDecimal bidStepAmountSnapshot;
-    private String currentLeaderAccountId;
     private String currentLeaderName;
-    private String winnerAccountId;
     private String winnerName;
     private String pauseReason;
     private String failureReason;

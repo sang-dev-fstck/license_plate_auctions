@@ -10,6 +10,7 @@ import com.auction.backend.repository.AuctionSettingsRepository;
 import com.auction.backend.service.AuctionSettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -36,26 +37,30 @@ public class AuctionSettingsServiceImpl implements AuctionSettingsService {
             throw new AppException("AuctionSettings id must not be blank");
         }
         AuctionSettings auctionSettings = auctionSettingsRepository.findById(id)
-                .orElseThrow(() -> new AppException("AuctionSettings with id " + id + " not found"));
+                .orElseThrow(() -> AppException.notFound("AuctionSettings with id " + id + " not found"));
         log.info("Getting AuctionSettings with id {}", auctionSettings.getId());
         return auctionSettingsMapper.toResponse(auctionSettings);
     }
 
     @Override
     public AuctionSettingsResponse addAuctionSetting(AuctionSettingsRequest request) {
-        if (auctionSettingsRepository.existsByVehicleTypeAndActiveTrue(request.getVehicleType())) {
-            throw new AppException("Setting cho loại xe này đã tồn tại");
-        }
         AuctionSettings auctionSettings = auctionSettingsMapper.toEntity(request);
         auctionSettings.setActive(true);
-        AuctionSettings addedEntity = auctionSettingsRepository.save(auctionSettings);
-        return auctionSettingsMapper.toResponse(addedEntity);
+        try {
+            AuctionSettings addedEntity = auctionSettingsRepository.save(auctionSettings);
+            return auctionSettingsMapper.toResponse(addedEntity);
+        } catch (DuplicateKeyException e) {
+            throw AppException.conflict("vehicleType", "Setting cho loại xe này đã tồn tại");
+        } catch (Exception e) {
+            log.error("Failed to create auction setting. vehicleType={}", request.getVehicleType(), e);
+            throw new AppException("Không thể tạo auction setting, vui lòng thử lại");
+        }
     }
 
     @Override
     public AuctionSettingsResponse updateAuctionSetting(UpdateAuctionSettingsRequest request, String id) {
         AuctionSettings existingSettings = auctionSettingsRepository.findById(id)
-                .orElseThrow(() -> new AppException("Không tìm thấy setting"));
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy setting"));
         auctionSettingsMapper.updateEntityFromRequest(request, existingSettings);
         AuctionSettings updatedSettings = auctionSettingsRepository.save(existingSettings);
         return auctionSettingsMapper.toResponse(updatedSettings);

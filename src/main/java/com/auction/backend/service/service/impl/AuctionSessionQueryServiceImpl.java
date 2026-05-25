@@ -3,6 +3,7 @@ package com.auction.backend.service.service.impl;
 import com.auction.backend.dto.*;
 import com.auction.backend.entity.AuctionSession;
 import com.auction.backend.entity.Bid;
+import com.auction.backend.enums.AuctionSessionStatus;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.mapper.AuctionSessionMapper;
 import com.auction.backend.readmodel.AuctionSessionDetailReadModel;
@@ -32,11 +33,10 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
     public AuctionSessionDetailResponse getSessionDetail(String sessionId) {
         AuctionSessionDetailReadModel detail =
                 auctionSessionReadRepository.findSessionDetailById(sessionId)
-                        .orElseThrow(() -> new AppException("Không tìm thấy phiên đấu giá"));
+                        .orElseThrow(() -> AppException.notFound("Không tìm thấy phiên đấu giá"));
 
         return AuctionSessionDetailResponse.builder()
                 .id(detail.getId())
-                .licensePlateId(detail.getLicensePlateId())
                 .licensePlateNumber(detail.getLicensePlateNumber())
                 .categoryName(detail.getCategoryName())
                 .provinceName(detail.getProvinceName())
@@ -47,9 +47,7 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
                 .startingPrice(detail.getStartingPrice())
                 .currentPrice(detail.getCurrentPrice())
                 .bidStepAmountSnapshot(detail.getBidStepAmountSnapshot())
-                .currentLeaderAccountId(detail.getCurrentLeaderAccountId())
                 .currentLeaderName(detail.getCurrentLeaderName())
-                .winnerAccountId(detail.getWinnerAccountId())
                 .winnerName(detail.getWinnerName())
                 .pauseReason(detail.getPauseReason())
                 .failureReason(detail.getFailureReason())
@@ -85,8 +83,24 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
         return PageResponse.of(pageResult, content);
     }
 
+    @Override
+    public void validatePublicStreamAccess(String sessionId) {
+        AuctionSession session = getSession(sessionId);
+        if (!isPublicVisibleStatus(session.getStatus())) {
+            throw new AppException("Phiên đấu giá không khả dụng để theo dõi");
+        }
+    }
+
+    private boolean isPublicVisibleStatus(AuctionSessionStatus status) {
+        return status == AuctionSessionStatus.SCHEDULED
+                || status == AuctionSessionStatus.ACTIVE
+                || status == AuctionSessionStatus.PAUSED
+                || status == AuctionSessionStatus.ENDED
+                || status == AuctionSessionStatus.FAILED;
+    }
+
     private AuctionSession getSession(String sessionId) {
         return auctionSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new AppException("Không tìm thấy phiên đấu giá"));
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy phiên đấu giá"));
     }
 }

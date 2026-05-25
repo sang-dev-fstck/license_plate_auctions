@@ -41,7 +41,7 @@ public class AuctionSessionScheduler {
         log.info("Found {} sessions eligible for auto end", sessions.size());
         for (AuctionSession session : sessions) {
             try {
-                auctionSessionLifecycleService.endSession(session.getId());
+                auctionSessionLifecycleService.autoEndSession(session.getId());
                 log.info("Session ended :{}", session.getId());
             } catch (Exception e) {
                 log.error("Cannot auto end sessionId={}", session.getId(), e);

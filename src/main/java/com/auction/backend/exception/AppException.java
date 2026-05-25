@@ -24,6 +24,14 @@ public class AppException extends RuntimeException {
         this.errors = errors;
     }
 
+    public static AppException notFound(String message) {
+        return new AppException(HttpStatus.NOT_FOUND, message);
+    }
+
+    public static AppException forbidden(String message) {
+        return new AppException(HttpStatus.FORBIDDEN, message);
+    }
+
     public static AppException conflict(String field, String message) {
         return new AppException(
                 HttpStatus.CONFLICT,

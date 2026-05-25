@@ -64,6 +64,8 @@ public class AuctionSession extends BaseEntity {
     private BigDecimal bidStepAmountSnapshot;
 
     private String currentLeaderAccountId;
+    private String currentLeaderNameSnapshot;
+
     private String winnerAccountId;
 
     private String pauseReason;
@@ -71,6 +73,7 @@ public class AuctionSession extends BaseEntity {
 
     private LocalDateTime pausedAt;
     private Long remainingSecondsWhenPaused;
+    private Long reservedCount;
     @Version
     private Long version;
 }
