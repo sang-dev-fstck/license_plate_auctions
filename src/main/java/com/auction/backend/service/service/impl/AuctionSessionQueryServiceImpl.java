@@ -1,5 +1,6 @@
 package com.auction.backend.service.service.impl;
 
+import com.auction.backend.common.CacheNames;
 import com.auction.backend.dto.*;
 import com.auction.backend.entity.AuctionSession;
 import com.auction.backend.entity.Bid;
@@ -14,6 +15,7 @@ import com.auction.backend.repository.BidRepository;
 import com.auction.backend.service.AuctionSessionQueryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
@@ -30,11 +32,11 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
     private final BidRepository bidRepository;
 
     @Override
+    @Cacheable(value = CacheNames.AUCTION_SESSION_DETAIL, key = "#sessionId")
     public AuctionSessionDetailResponse getSessionDetail(String sessionId) {
         AuctionSessionDetailReadModel detail =
                 auctionSessionReadRepository.findSessionDetailById(sessionId)
                         .orElseThrow(() -> AppException.notFound("Không tìm thấy phiên đấu giá"));
-
         return AuctionSessionDetailResponse.builder()
                 .id(detail.getId())
                 .licensePlateNumber(detail.getLicensePlateNumber())

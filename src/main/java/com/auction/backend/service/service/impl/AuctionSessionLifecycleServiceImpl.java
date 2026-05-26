@@ -10,6 +10,7 @@ import com.auction.backend.enums.*;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.mapper.AuctionSessionMapper;
 import com.auction.backend.repository.*;
+import com.auction.backend.service.AuctionSessionCacheService;
 import com.auction.backend.service.AuctionSessionLifecycleService;
 import com.auction.backend.service.AuctionSessionRealtimeService;
 import com.auction.backend.service.AuctionSessionStatusHistoryService;
@@ -36,6 +37,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
     private final AuctionSessionStatusHistoryService statusHistoryService;
     private final AuctionSessionRealtimeService auctionSessionRealtimeService;
     private final AuctionSessionLifecycleAtomicRepository auctionSessionLifecycleAtomicRepository;
+    private final AuctionSessionCacheService auctionSessionCacheService;
 
     @Override
     public AuctionSessionResponse activateSession(String sessionId) {
@@ -63,6 +65,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
 
             validSession.setStatus(AuctionSessionStatus.ACTIVE);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            evictSessionDetailCache(sessionId);
             recordAndPublishStatusChange(savedSession, oldStatus, "Auto activate session by system", StatusChangedByType.SYSTEM, EventType.SESSION_STARTED);
             return auctionSessionMapper.toResponse(savedSession);
         }
@@ -91,6 +94,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setRemainingSecondsWhenPaused(remainingTimeBeforePause);
             validSession.setPauseReason(request.getReason());
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            evictSessionDetailCache(sessionId);
             recordAndPublishStatusChange(savedSession, oldStatus, request.getReason(), StatusChangedByType.ADMIN, EventType.SESSION_PAUSED);
             return auctionSessionMapper.toResponse(savedSession);
         }
@@ -102,6 +106,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setEndTime(now.plusSeconds(validSession.getRemainingSecondsWhenPaused()));
             validSession.setRemainingSecondsWhenPaused(null);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            evictSessionDetailCache(sessionId);
             recordAndPublishStatusChange(savedSession, oldStatus, null, StatusChangedByType.ADMIN, EventType.SESSION_RESUMED);
             return auctionSessionMapper.toResponse(savedSession);
         }
@@ -122,6 +127,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                 settleFailedSessionRefunds(validSession, validPlate, participations, request);
                 licensePlateRepository.save(validPlate);
                 AuctionSession savedSession = auctionSessionRepository.save(validSession);
+                evictSessionDetailCache(sessionId);
                 recordAndPublishStatusChange(savedSession, oldStatus, request.getReason(), StatusChangedByType.ADMIN, EventType.SESSION_FAILED);
                 return auctionSessionMapper.toResponse(savedSession);
             } catch (AppException e) {
@@ -178,6 +184,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             licensePlateRepository.save(validPlate);
             validSession.setEndingClaimedAt(null);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
+            evictSessionDetailCache(sessionId);
             recordAndPublishStatusChange(savedSession, AuctionSessionStatus.ACTIVE, reason, changedByType, EventType.SESSION_ENDED);
             return auctionSessionMapper.toResponse(savedSession);
         } catch (AppException e) {
@@ -356,5 +363,13 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
 
     private List<AuctionParticipation> getAllParticipations(String auctionSessionId) {
         return auctionParticipationRepository.findByAuctionSessionId(auctionSessionId);
+    }
+
+    private void evictSessionDetailCache(String sessionId) {
+        try {
+            auctionSessionCacheService.evictSessionDetail(sessionId);
+        } catch (Exception e) {
+            log.warn("Failed to evict session detail cache. sessionId={}", sessionId, e);
+        }
     }
 }
