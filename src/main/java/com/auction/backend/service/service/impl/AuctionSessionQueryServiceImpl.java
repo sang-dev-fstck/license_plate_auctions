@@ -37,6 +37,7 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
         AuctionSessionDetailReadModel detail =
                 auctionSessionReadRepository.findSessionDetailById(sessionId)
                         .orElseThrow(() -> AppException.notFound("Không tìm thấy phiên đấu giá"));
+        log.info("Loading session detail from DB. sessionId={}", sessionId);
         return AuctionSessionDetailResponse.builder()
                 .id(detail.getId())
                 .licensePlateNumber(detail.getLicensePlateNumber())
