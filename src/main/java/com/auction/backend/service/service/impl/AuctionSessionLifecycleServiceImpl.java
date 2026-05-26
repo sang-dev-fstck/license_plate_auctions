@@ -53,15 +53,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                 try {
                     licensePlateRepository.save(validPlate);
                     AuctionSession savedSession = auctionSessionRepository.save(validSession);
-                    statusHistoryService.recordStatusChange(
-                            savedSession.getId(),
-                            oldStatus,
-                            savedSession.getStatus(),
-                            "Auto end session by system for there is no reservation",
-                            StatusChangedByType.SYSTEM,
-                            null
-                    );
-                    publishSessionStatusChangedEvent(savedSession, EventType.SESSION_ENDED);
+                    recordAndPublishStatusChange(savedSession, oldStatus, "Auto end session by system for there is no reservation", StatusChangedByType.SYSTEM, EventType.SESSION_ENDED);
                     return auctionSessionMapper.toResponse(savedSession);
                 } catch (Exception e) {
                     log.error("End session fail with id={}", sessionId, e);
@@ -71,15 +63,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
 
             validSession.setStatus(AuctionSessionStatus.ACTIVE);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
-            statusHistoryService.recordStatusChange(
-                    savedSession.getId(),
-                    oldStatus,
-                    savedSession.getStatus(),
-                    "Auto activate session by system",
-                    StatusChangedByType.SYSTEM,
-                    null
-            );
-            publishSessionStatusChangedEvent(savedSession, EventType.SESSION_STARTED);
+            recordAndPublishStatusChange(savedSession, oldStatus, "Auto activate session by system", StatusChangedByType.SYSTEM, EventType.SESSION_STARTED);
             return auctionSessionMapper.toResponse(savedSession);
         }
         throw new AppException("Điều kiện kích hoạt phiên đấu giá không hợp lệ");
@@ -107,15 +91,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setRemainingSecondsWhenPaused(remainingTimeBeforePause);
             validSession.setPauseReason(request.getReason());
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
-            statusHistoryService.recordStatusChange(
-                    savedSession.getId(),
-                    oldStatus,
-                    savedSession.getStatus(),
-                    request.getReason(),
-                    StatusChangedByType.ADMIN, // hoặc ADMIN
-                    null
-            );
-            publishSessionStatusChangedEvent(savedSession, EventType.SESSION_PAUSED);
+            recordAndPublishStatusChange(savedSession, oldStatus, request.getReason(), StatusChangedByType.ADMIN, EventType.SESSION_PAUSED);
             return auctionSessionMapper.toResponse(savedSession);
         }
 
@@ -126,15 +102,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             validSession.setEndTime(now.plusSeconds(validSession.getRemainingSecondsWhenPaused()));
             validSession.setRemainingSecondsWhenPaused(null);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
-            statusHistoryService.recordStatusChange(
-                    savedSession.getId(),
-                    oldStatus,
-                    savedSession.getStatus(),
-                    null,
-                    StatusChangedByType.ADMIN,
-                    null
-            );
-            publishSessionStatusChangedEvent(savedSession, EventType.SESSION_RESUMED);
+            recordAndPublishStatusChange(savedSession, oldStatus, null, StatusChangedByType.ADMIN, EventType.SESSION_RESUMED);
             return auctionSessionMapper.toResponse(savedSession);
         }
         throw new AppException("Không thể ngừng/tiếp tục phiên đấu giá");
@@ -154,15 +122,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
                 settleFailedSessionRefunds(validSession, validPlate, participations, request);
                 licensePlateRepository.save(validPlate);
                 AuctionSession savedSession = auctionSessionRepository.save(validSession);
-                statusHistoryService.recordStatusChange(
-                        savedSession.getId(),
-                        oldStatus,
-                        savedSession.getStatus(),
-                        request.getReason(),
-                        StatusChangedByType.ADMIN,
-                        null
-                );
-                publishSessionStatusChangedEvent(savedSession, EventType.SESSION_FAILED);
+                recordAndPublishStatusChange(savedSession, oldStatus, request.getReason(), StatusChangedByType.ADMIN, EventType.SESSION_FAILED);
                 return auctionSessionMapper.toResponse(savedSession);
             } catch (AppException e) {
                 throw e;
@@ -218,15 +178,7 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
             licensePlateRepository.save(validPlate);
             validSession.setEndingClaimedAt(null);
             AuctionSession savedSession = auctionSessionRepository.save(validSession);
-            statusHistoryService.recordStatusChange(
-                    savedSession.getId(),
-                    AuctionSessionStatus.ACTIVE,
-                    savedSession.getStatus(),
-                    reason,
-                    changedByType,
-                    null
-            );
-            publishSessionStatusChangedEvent(savedSession, EventType.SESSION_ENDED);
+            recordAndPublishStatusChange(savedSession, AuctionSessionStatus.ACTIVE, reason, changedByType, EventType.SESSION_ENDED);
             return auctionSessionMapper.toResponse(savedSession);
         } catch (AppException e) {
             throw e;
@@ -355,6 +307,24 @@ public class AuctionSessionLifecycleServiceImpl implements AuctionSessionLifecyc
         } catch (Exception e) {
             log.warn("Không thể publish event khi thay đổi trạng thái của phiên đấu giá  với id={}", session.getId());
         }
+    }
+
+    private void recordAndPublishStatusChange(
+            AuctionSession savedSession,
+            AuctionSessionStatus fromStatus,
+            String reason,
+            StatusChangedByType changedByType,
+            EventType eventType
+    ) {
+        statusHistoryService.recordStatusChange(
+                savedSession.getId(),
+                fromStatus,
+                savedSession.getStatus(),
+                reason,
+                changedByType,
+                null
+        );
+        publishSessionStatusChangedEvent(savedSession, eventType);
     }
 
     private AuctionSession getSessionBySessionId(String sessionId) {
