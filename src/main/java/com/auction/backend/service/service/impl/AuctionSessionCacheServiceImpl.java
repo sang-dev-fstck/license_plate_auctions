@@ -19,6 +19,14 @@ public class AuctionSessionCacheServiceImpl implements AuctionSessionCacheServic
         if (cache != null) {
             cache.evict(sessionId);
         }
-        
+
+    }
+
+    @Override
+    public void evictBidHistory(String sessionId) {
+        Cache cache = cacheManager.getCache(CacheNames.AUCTION_SESSION_BID_HISTORY);
+        if (cache != null) {
+            cache.evict(sessionId);
+        }
     }
 }

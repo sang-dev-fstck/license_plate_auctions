@@ -533,6 +533,7 @@ public class BidServiceImpl implements BidService {
     private void evictSessionDetailCache(String sessionId) {
         try {
             auctionSessionCacheService.evictSessionDetail(sessionId);
+            auctionSessionCacheService.evictBidHistory(sessionId);
         } catch (Exception e) {
             log.warn("Failed to evict session detail cache. sessionId={}", sessionId, e);
         }

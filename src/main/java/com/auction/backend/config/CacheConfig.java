@@ -52,7 +52,15 @@ public class CacheConfig {
                         RedisSerializationContext.SerializationPair.fromSerializer(serializer)
                 );
 
+        RedisCacheConfiguration bidHistoryConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofSeconds(15))
+                .disableCachingNullValues()
+                .serializeValuesWith(
+                        RedisSerializationContext.SerializationPair.fromSerializer(serializer)
+                );
+
         return builder -> builder
-                .withCacheConfiguration(CacheNames.AUCTION_SESSION_DETAIL, sessionDetailConfig);
+                .withCacheConfiguration(CacheNames.AUCTION_SESSION_DETAIL, sessionDetailConfig)
+                .withCacheConfiguration(CacheNames.AUCTION_SESSION_BID_HISTORY, bidHistoryConfig);
     }
 }

@@ -58,6 +58,7 @@ public class AuctionSessionQueryServiceImpl implements AuctionSessionQueryServic
     }
 
     @Override
+    @Cacheable(value = CacheNames.AUCTION_SESSION_BID_HISTORY, key = "#sessionId")
     public List<BidHistoryItemResponse> getBidHistory(String sessionId) {
         AuctionSession session = getSession(sessionId);
         List<Bid> bids = bidRepository.findByAuctionSessionIdOrderByCreatedAtDesc(session.getId());
