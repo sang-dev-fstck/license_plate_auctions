@@ -12,6 +12,7 @@ import com.auction.backend.enums.ParticipationStatus;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.*;
 import com.auction.backend.security.CurrentAccountProvider;
+import com.auction.backend.service.AuctionSessionCacheService;
 import com.auction.backend.service.AuctionSessionRealtimeService;
 import com.auction.backend.service.BidService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,8 @@ public class BidServiceImpl implements BidService {
     private final AuctionParticipationRepository auctionParticipationRepository;
     private final AuctionSessionAtomicRepository auctionSessionAtomicRepository;
     private final AuctionSessionRealtimeService auctionSessionRealtimeService;
+
+    private final AuctionSessionCacheService auctionSessionCacheService;
 
     @Override
     public PlaceBidResponse placeBid(PlaceBidRequest request) {
@@ -137,6 +140,8 @@ public class BidServiceImpl implements BidService {
                 session.getId()
         );
 
+        evictSessionDetailCache(session.getId());
+
         publishBidAcceptedEvent(session);
         return getBidResponse(request, session, bid);
     }
@@ -186,6 +191,9 @@ public class BidServiceImpl implements BidService {
         }
         reportLeaderConsistency(session);
         Bid bid = saveBidHistoryAfterAccepted(request, user, session);
+
+        evictSessionDetailCache(session.getId());
+
         publishBidAcceptedEvent(session);
         return getBidResponse(request, session, bid);
     }
@@ -237,6 +245,9 @@ public class BidServiceImpl implements BidService {
                 session.getId()
         );
         Bid bid = saveBidHistoryAfterAccepted(request, user, session);
+
+        evictSessionDetailCache(session.getId());
+
         publishBidAcceptedEvent(session);
         return getBidResponse(request, session, bid);
     }
@@ -516,6 +527,15 @@ public class BidServiceImpl implements BidService {
                     session.getCurrentPrice(),
                     e
             );
+        }
+    }
+
+    private void evictSessionDetailCache(String sessionId) {
+        try {
+            auctionSessionCacheService.evictSessionDetail(sessionId);
+            auctionSessionCacheService.evictBidHistory(sessionId);
+        } catch (Exception e) {
+            log.warn("Failed to evict session detail cache. sessionId={}", sessionId, e);
         }
     }
 

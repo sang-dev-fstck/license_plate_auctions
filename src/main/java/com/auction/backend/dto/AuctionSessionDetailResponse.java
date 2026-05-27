@@ -1,9 +1,7 @@
 package com.auction.backend.dto;
 
 import com.auction.backend.enums.AuctionSessionStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -11,6 +9,8 @@ import java.util.List;
 
 @Getter
 @AllArgsConstructor
+@Setter
+@NoArgsConstructor
 @Builder
 public class AuctionSessionDetailResponse {
     private String id;
