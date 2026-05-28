@@ -20,4 +20,9 @@ public class AuctionSessionRealtimeEvent {
     private LocalDateTime endTime;
     private AuctionSessionStatus status;
     private LocalDateTime occurredAt;
+
+    private String bidId;
+    private BigDecimal bidAmount;
+    private String bidderNameSnapshot;
+    private LocalDateTime bidTime;
 }

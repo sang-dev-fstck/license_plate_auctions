@@ -140,9 +140,9 @@ public class BidServiceImpl implements BidService {
                 session.getId()
         );
 
-        evictSessionDetailCache(session.getId());
+        evictBidRelatedCaches(session.getId());
 
-        publishBidAcceptedEvent(session);
+        publishBidAcceptedEvent(session, bid);
         return getBidResponse(request, session, bid);
     }
 
@@ -192,9 +192,9 @@ public class BidServiceImpl implements BidService {
         reportLeaderConsistency(session);
         Bid bid = saveBidHistoryAfterAccepted(request, user, session);
 
-        evictSessionDetailCache(session.getId());
+        evictBidRelatedCaches(session.getId());
 
-        publishBidAcceptedEvent(session);
+        publishBidAcceptedEvent(session, bid);
         return getBidResponse(request, session, bid);
     }
 
@@ -239,16 +239,18 @@ public class BidServiceImpl implements BidService {
         }
 
         reportLeaderConsistency(session);
+
+        Bid bid = saveBidHistoryAfterAccepted(request, user, session);
+
         releasePreviousLeaderAfterSuccessfulBid(
                 previousLeaderAccountId,
                 amountToRelease,
                 session.getId()
         );
-        Bid bid = saveBidHistoryAfterAccepted(request, user, session);
 
-        evictSessionDetailCache(session.getId());
+        evictBidRelatedCaches(session.getId());
 
-        publishBidAcceptedEvent(session);
+        publishBidAcceptedEvent(session, bid);
         return getBidResponse(request, session, bid);
     }
 
@@ -498,18 +500,28 @@ public class BidServiceImpl implements BidService {
         );
     }
 
-    private void publishBidAcceptedEvent(AuctionSession session) {
+    private void publishBidAcceptedEvent(AuctionSession session, Bid bid) {
         try {
-            AuctionSessionRealtimeEvent event = AuctionSessionRealtimeEvent.builder()
-                    .type(EventType.BID_ACCEPTED)
-                    .auctionSessionId(session.getId())
-                    .currentPrice(session.getCurrentPrice())
-                    .currentLeaderNameSnapshot(session.getCurrentLeaderNameSnapshot())
-                    .endTime(session.getEndTime())
-                    .status(session.getStatus())
-                    .occurredAt(LocalDateTime.now())
-                    .build();
-            auctionSessionRealtimeService.publish(session.getId(), event);
+
+            AuctionSessionRealtimeEvent.AuctionSessionRealtimeEventBuilder builder =
+                    AuctionSessionRealtimeEvent.builder()
+                            .type(EventType.BID_ACCEPTED)
+                            .auctionSessionId(session.getId())
+                            .currentPrice(session.getCurrentPrice())
+                            .currentLeaderNameSnapshot(session.getCurrentLeaderNameSnapshot())
+                            .endTime(session.getEndTime())
+                            .status(session.getStatus())
+                            .occurredAt(LocalDateTime.now());
+
+            if (bid != null) {
+                builder
+                        .bidId(bid.getId())
+                        .bidAmount(bid.getAmount())
+                        .bidderNameSnapshot(bid.getBidderFullNameSnapshot())
+                        .bidTime(bid.getCreatedAt());
+            }
+
+            auctionSessionRealtimeService.publish(session.getId(), builder.build());
         } catch (Exception e) {
             log.warn("Failed to publish bid accepted event. sessionId={}", session.getId());
         }
@@ -530,7 +542,7 @@ public class BidServiceImpl implements BidService {
         }
     }
 
-    private void evictSessionDetailCache(String sessionId) {
+    private void evictBidRelatedCaches(String sessionId) {
         try {
             auctionSessionCacheService.evictSessionDetail(sessionId);
             auctionSessionCacheService.evictBidHistory(sessionId);
