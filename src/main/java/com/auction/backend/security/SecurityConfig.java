@@ -1,6 +1,7 @@
 package com.auction.backend.security;
 
 import com.auction.backend.dto.ErrorResponse;
+import com.auction.backend.security.session.OpaqueTokenAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +17,11 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -32,6 +35,7 @@ public class SecurityConfig {
     // Inject Anh thợ mỏ vào đây
     private final CustomUserDetailsService customUserDetailsService;
     private final ObjectMapper objectMapper; // inject từ Spring
+    private final OpaqueTokenAuthenticationFilter opaqueTokenAuthenticationFilter;
 
     // Thuật toán Băm (Hash) mật khẩu một chiều: BCrypt (Chuẩn an toàn hiện nay)
     @Bean
@@ -64,6 +68,9 @@ public class SecurityConfig {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -102,7 +109,7 @@ public class SecurityConfig {
                                 throw new RuntimeException(e);
                             }
                         })
-                );
+                ).addFilterBefore(opaqueTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
