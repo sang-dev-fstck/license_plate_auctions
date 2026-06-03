@@ -26,10 +26,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody @Valid LoginRequest request,
-                                        HttpServletRequest httpRequest,
-                                        HttpServletResponse httpResponse) {
-        return ResponseEntity.ok(authService.login(request, httpRequest, httpResponse));
+    public ResponseEntity<Map<String, String>> login(@RequestBody @Valid LoginRequest request,
+                                                     HttpServletRequest httpRequest,
+                                                     HttpServletResponse httpResponse) {
+        String stringResult = authService.login(request, httpRequest, httpResponse);
+        return ResponseEntity.ok(Map.of(
+                "message", stringResult
+        ));
     }
 
     @GetMapping("/me")
