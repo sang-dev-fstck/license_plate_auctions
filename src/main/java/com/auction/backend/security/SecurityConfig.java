@@ -5,6 +5,7 @@ import com.auction.backend.security.session.OpaqueTokenAuthenticationFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -32,6 +33,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
     // Inject Anh thợ mỏ vào đây
     private final CustomUserDetailsService customUserDetailsService;
@@ -117,6 +119,7 @@ public class SecurityConfig {
                                         HttpServletResponse.SC_FORBIDDEN,
                                         "Bạn không có quyền truy cập tài nguyên này"
                                 );
+
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             }
