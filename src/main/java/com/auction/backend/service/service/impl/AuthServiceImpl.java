@@ -9,6 +9,7 @@ import com.auction.backend.enums.Role;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.AccountRepository;
 import com.auction.backend.repository.WalletRepository;
+import com.auction.backend.security.session.*;
 import com.auction.backend.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,24 +18,29 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
-import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
+    private static final Duration AUTH_SESSION_TTL = Duration.ofHours(24);
+
     private final AccountRepository accountRepository;
     private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
-
-    private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
-
+    private final OpaqueTokenService opaqueTokenService;
+    private final AuthSessionRedisService authSessionRedisService;
+    private final AuthCookieService authCookieService;
 
     @Override
     public String register(RegisterRequest request) {
@@ -92,11 +98,45 @@ public class AuthServiceImpl implements AuthService {
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
 
-        securityContextRepository.saveContext(context, httpRequest, httpResponse);
+        Account account = accountRepository.findByEmail(normalizeEmail(request.getEmail()))
+                .orElseThrow(() -> AppException.notFound("Không tìm thấy tài khoản hiện tại"));
+
+        createOpaqueAuthSession(authentication, account, httpRequest, httpResponse);
+
         log.info("Login success for email={}", normalizeEmail(request.getEmail()));
         return "Đăng nhập thành công";
+    }
+
+    private void createOpaqueAuthSession(
+            Authentication authentication,
+            Account account,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
+        LocalDateTime now = LocalDateTime.now();
+
+        String rawToken = opaqueTokenService.generateToken();
+        String tokenHash = opaqueTokenService.hashToken(rawToken);
+
+        List<String> roles = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+
+        AuthSession authSession = AuthSession.builder()
+                .tokenHash(tokenHash)
+                .accountId(account.getId())
+                .email(account.getEmail())
+                .roles(roles)
+                .createdAt(now)
+                .expiresAt(now.plus(AUTH_SESSION_TTL))
+                .lastSeenAt(now)
+                .ipAddress(request.getRemoteAddr())
+                .userAgent(request.getHeader("User-Agent"))
+                .build();
+
+        authSessionRedisService.save(authSession, AUTH_SESSION_TTL);
+        authCookieService.addAuthCookie(response, rawToken, AUTH_SESSION_TTL);
     }
 
     @Override
@@ -124,13 +164,31 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public String logout(HttpServletRequest request, HttpServletResponse response) {
-        SecurityContextHolder.clearContext();
+        String rawToken = resolveCookieValue(request, AuthCookieNames.ACCESS_TOKEN);
 
-        var session = request.getSession(false);
-        if (session != null) {
-            session.invalidate();
+        if (rawToken != null && !rawToken.isBlank()) {
+            String tokenHash = opaqueTokenService.hashToken(rawToken);
+            authSessionRedisService.deleteByTokenHash(tokenHash);
         }
+
+        authCookieService.clearAuthCookie(response);
+
+        SecurityContextHolder.clearContext();
         return "Đăng xuất thành công";
+    }
+
+    private String resolveCookieValue(HttpServletRequest request, String cookieName) {
+        if (request.getCookies() == null) {
+            return null;
+        }
+
+        for (var cookie : request.getCookies()) {
+            if (cookieName.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+
+        return null;
     }
 
     private String normalizeEmail(String email) {

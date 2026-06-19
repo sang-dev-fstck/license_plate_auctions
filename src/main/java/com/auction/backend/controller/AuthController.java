@@ -9,7 +9,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -23,10 +26,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(@RequestBody @Valid LoginRequest request,
-                                        HttpServletRequest httpRequest,
-                                        HttpServletResponse httpResponse) {
-        return ResponseEntity.ok(authService.login(request, httpRequest, httpResponse));
+    public ResponseEntity<Map<String, String>> login(@RequestBody @Valid LoginRequest request,
+                                                     HttpServletRequest httpRequest,
+                                                     HttpServletResponse httpResponse) {
+        String stringResult = authService.login(request, httpRequest, httpResponse);
+        return ResponseEntity.ok(Map.of(
+                "message", stringResult
+        ));
     }
 
     @GetMapping("/me")
@@ -37,5 +43,14 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<String> logout(HttpServletRequest request, HttpServletResponse response) {
         return ResponseEntity.ok(authService.logout(request, response));
+    }
+
+    @GetMapping("/csrf")
+    public ResponseEntity<Map<String, String>> csrf(CsrfToken csrfToken) {
+        return ResponseEntity.ok(Map.of(
+                "headerName", csrfToken.getHeaderName(),
+                "parameterName", csrfToken.getParameterName(),
+                "token", csrfToken.getToken()
+        ));
     }
 }
