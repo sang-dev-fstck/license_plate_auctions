@@ -18,22 +18,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
-    private static final Duration AUTH_SESSION_TTL = Duration.ofHours(24);
-
     private final AccountRepository accountRepository;
     private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
@@ -41,6 +35,7 @@ public class AuthServiceImpl implements AuthService {
     private final OpaqueTokenService opaqueTokenService;
     private final AuthSessionRedisService authSessionRedisService;
     private final AuthCookieService authCookieService;
+    private final AuthSessionService authSessionService;
 
     @Override
     public String register(RegisterRequest request) {
@@ -75,18 +70,10 @@ public class AuthServiceImpl implements AuthService {
         return "Đăng ký tài khoản thành công";
     }
 
-    //Sau khi login thành công:
-    //Spring tạo session
-    //session id được gửi về cookie
-    //nếu bạn dùng Spring Session + Redis, session data nằm trong Redis
-    //request sau trình duyệt gửi kèm cookie
-    //Spring load security context từ session
-    //endpoint protected sẽ qua được
     @Override
     public String login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
-        Authentication authentication;
         try {
-            authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             normalizeEmail(request.getEmail()),
                             request.getPassword()
@@ -95,48 +82,22 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception e) {
             throw new AppException("Email hoặc mật khẩu không chính xác");
         }
-
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication);
-
         Account account = accountRepository.findByEmail(normalizeEmail(request.getEmail()))
                 .orElseThrow(() -> AppException.notFound("Không tìm thấy tài khoản hiện tại"));
 
-        createOpaqueAuthSession(authentication, account, httpRequest, httpResponse);
+        createOpaqueAuthSession(account, httpRequest, httpResponse);
 
         log.info("Login success for email={}", normalizeEmail(request.getEmail()));
         return "Đăng nhập thành công";
     }
 
     private void createOpaqueAuthSession(
-            Authentication authentication,
             Account account,
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        LocalDateTime now = LocalDateTime.now();
-
-        String rawToken = opaqueTokenService.generateToken();
-        String tokenHash = opaqueTokenService.hashToken(rawToken);
-
-        List<String> roles = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList();
-
-        AuthSession authSession = AuthSession.builder()
-                .tokenHash(tokenHash)
-                .accountId(account.getId())
-                .email(account.getEmail())
-                .roles(roles)
-                .createdAt(now)
-                .expiresAt(now.plus(AUTH_SESSION_TTL))
-                .lastSeenAt(now)
-                .ipAddress(request.getRemoteAddr())
-                .userAgent(request.getHeader("User-Agent"))
-                .build();
-
-        authSessionRedisService.save(authSession, AUTH_SESSION_TTL);
-        authCookieService.addAuthCookie(response, rawToken, AUTH_SESSION_TTL);
+        AuthSessionResult result = authSessionService.createSession(account, request.getHeader("User-Agent"), request.getRemoteAddr());
+        authCookieService.addAuthCookie(response, result.rawToken(), Duration.ofSeconds(result.maxAgeSeconds()));
     }
 
     @Override
@@ -166,11 +127,7 @@ public class AuthServiceImpl implements AuthService {
     public String logout(HttpServletRequest request, HttpServletResponse response) {
         String rawToken = resolveCookieValue(request, AuthCookieNames.ACCESS_TOKEN);
 
-        if (rawToken != null && !rawToken.isBlank()) {
-            String tokenHash = opaqueTokenService.hashToken(rawToken);
-            authSessionRedisService.deleteByTokenHash(tokenHash);
-        }
-
+        authSessionService.revokeCurrent(rawToken);
         authCookieService.clearAuthCookie(response);
 
         SecurityContextHolder.clearContext();

@@ -35,7 +35,7 @@ public class OpaqueTokenAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
         try {
-            
+
             Authentication existingAuthentication =
                     SecurityContextHolder.getContext().getAuthentication();
 
