@@ -1,4 +1,4 @@
-package com.auction.backend.service.service.impl;
+package com.auction.backend.service.impl;
 
 import com.auction.backend.dto.CurrentUserResponse;
 import com.auction.backend.dto.LoginRequest;
@@ -9,7 +9,10 @@ import com.auction.backend.enums.Role;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.AccountRepository;
 import com.auction.backend.repository.WalletRepository;
-import com.auction.backend.security.session.*;
+import com.auction.backend.security.session.AuthCookieNames;
+import com.auction.backend.security.session.AuthCookieService;
+import com.auction.backend.security.session.AuthSessionResult;
+import com.auction.backend.security.session.AuthSessionService;
 import com.auction.backend.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,8 +35,6 @@ public class AuthServiceImpl implements AuthService {
     private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
-    private final OpaqueTokenService opaqueTokenService;
-    private final AuthSessionRedisService authSessionRedisService;
     private final AuthCookieService authCookieService;
     private final AuthSessionService authSessionService;
 

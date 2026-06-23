@@ -2,6 +2,7 @@ package com.auction.backend.security.session;
 
 import com.auction.backend.entity.Account;
 import com.auction.backend.enums.Role;
+import com.auction.backend.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -52,6 +54,7 @@ public class AuthSessionServiceImpl implements AuthSessionService {
                 .build();
 
         authSessionRedisService.save(authSession, ttl);
+        authSessionRedisService.addToAccountIndex(account.getId(), tokenHash, ttl);
         return new AuthSessionResult(rawToken, maxAgeSeconds);
     }
 
@@ -82,13 +85,22 @@ public class AuthSessionServiceImpl implements AuthSessionService {
         if (rawToken == null || rawToken.isBlank()) {
             return;
         }
+        AuthSession session = findByRawToken(rawToken).orElseThrow(() -> new AppException("Auth session not found"));
         String tokenHash = opaqueTokenService.hashToken(rawToken);
+        authSessionRedisService.removeFromAccountIndex(session.getAccountId(), tokenHash);
         authSessionRedisService.deleteByTokenHash(tokenHash);
     }
 
     @Override
     public void revokeAllByAccountId(String accountId) {
-
+        if (accountId == null || accountId.isBlank()) {
+            return;
+        }
+        Set<String> tokenHashes = authSessionRedisService.findTokenHashesByAccountId(accountId);
+        for (String tokenHash : tokenHashes) {
+            authSessionRedisService.deleteByTokenHash(tokenHash);
+        }
+        authSessionRedisService.deleteAccountIndex(accountId);
     }
 
     private String toAuthority(Role role) {

@@ -1,4 +1,4 @@
-package com.auction.backend.service.service.impl;
+package com.auction.backend.service.impl;
 
 import com.auction.backend.common.TagRuleMatcher;
 import com.auction.backend.dto.PlateClassificationResult;

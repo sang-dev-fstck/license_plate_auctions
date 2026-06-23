@@ -3,6 +3,8 @@ package com.auction.backend.controller;
 import com.auction.backend.dto.CurrentUserResponse;
 import com.auction.backend.dto.LoginRequest;
 import com.auction.backend.dto.RegisterRequest;
+import com.auction.backend.dto.RevokeAllRequest;
+import com.auction.backend.security.session.AuthSessionService;
 import com.auction.backend.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -19,6 +21,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthController {
     private final AuthService authService;
+    private final AuthSessionService authSessionService;
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody @Valid RegisterRequest request) {
@@ -52,5 +55,10 @@ public class AuthController {
                 "parameterName", csrfToken.getParameterName(),
                 "token", csrfToken.getToken()
         ));
+    }
+
+    @PostMapping("/revoke-all")
+    public void revokeAll(@Valid @RequestBody RevokeAllRequest request) {
+        authSessionService.revokeAllByAccountId(request.getAccountId());
     }
 }
