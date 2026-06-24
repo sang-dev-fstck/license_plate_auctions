@@ -2,7 +2,6 @@ package com.auction.backend.security.session;
 
 import com.auction.backend.entity.Account;
 import com.auction.backend.enums.Role;
-import com.auction.backend.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -63,6 +62,7 @@ public class AuthSessionServiceImpl implements AuthSessionService {
         if (rawToken == null || rawToken.isBlank()) {
             return Optional.empty();
         }
+
         String tokenHash = opaqueTokenService.hashToken(rawToken);
         Optional<AuthSession> authSessionOpt = authSessionRedisService.findByTokenHash(tokenHash);
 
@@ -74,6 +74,7 @@ public class AuthSessionServiceImpl implements AuthSessionService {
 
         if (authSession.getExpiresAt() != null &&
                 authSession.getExpiresAt().isBefore(LocalDateTime.now())) {
+            authSessionRedisService.removeFromAccountIndex(authSession.getAccountId(), tokenHash);
             authSessionRedisService.deleteByTokenHash(tokenHash);
             return Optional.empty();
         }
@@ -85,8 +86,18 @@ public class AuthSessionServiceImpl implements AuthSessionService {
         if (rawToken == null || rawToken.isBlank()) {
             return;
         }
-        AuthSession session = findByRawToken(rawToken).orElseThrow(() -> new AppException("Auth session not found"));
+
         String tokenHash = opaqueTokenService.hashToken(rawToken);
+
+        Optional<AuthSession> sessionOpt = authSessionRedisService.findByTokenHash(tokenHash);
+
+        if (sessionOpt.isEmpty()) {
+            authSessionRedisService.deleteByTokenHash(tokenHash);
+            return;
+        }
+
+        AuthSession session = sessionOpt.get();
+
         authSessionRedisService.removeFromAccountIndex(session.getAccountId(), tokenHash);
         authSessionRedisService.deleteByTokenHash(tokenHash);
     }

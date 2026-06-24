@@ -86,6 +86,9 @@ public class AuthServiceImpl implements AuthService {
         Account account = accountRepository.findByEmail(normalizeEmail(request.getEmail()))
                 .orElseThrow(() -> AppException.notFound("Không tìm thấy tài khoản hiện tại"));
 
+        if (!Boolean.TRUE.equals(account.getActive())) {
+            throw new AppException("Tài khoản đã bị khóa");
+        }
         createOpaqueAuthSession(account, httpRequest, httpResponse);
 
         log.info("Login success for email={}", normalizeEmail(request.getEmail()));
