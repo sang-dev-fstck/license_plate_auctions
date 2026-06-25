@@ -93,7 +93,8 @@ public class SecurityConfig {
                                 "/api/v1/plates",
                                 "/api/v1/categories",
                                 "/api/v1/tag-rules",
-                                "/api/v1/auction-sessions/customer"
+                                "/api/v1/auction-sessions/customer",
+                                "/api/v1/auction-sessions/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/plates/search"
