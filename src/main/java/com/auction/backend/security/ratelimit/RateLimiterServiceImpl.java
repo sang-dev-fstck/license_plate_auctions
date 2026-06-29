@@ -21,7 +21,7 @@ public class RateLimiterServiceImpl implements RateLimiterService {
     private static final int LOGIN_IP_LIMIT = 10;
     private static final Duration LOGIN_IP_WINDOW = Duration.ofMinutes(1);
     private static final int BID_LIMIT = 5;
-    private static final Duration BID_WINDOW = Duration.ofSeconds(10);
+    private static final Duration BID_WINDOW = Duration.ofSeconds(3);
 
     private static final int LOGIN_EMAIL_LIMIT = 5;
     private static final Duration LOGIN_EMAIL_WINDOW = Duration.ofMinutes(5);
