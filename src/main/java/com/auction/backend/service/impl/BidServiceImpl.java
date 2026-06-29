@@ -12,6 +12,7 @@ import com.auction.backend.enums.ParticipationStatus;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.*;
 import com.auction.backend.security.CurrentAccountProvider;
+import com.auction.backend.security.ratelimit.RateLimiterService;
 import com.auction.backend.service.AuctionSessionCacheService;
 import com.auction.backend.service.AuctionSessionRealtimeService;
 import com.auction.backend.service.BidService;
@@ -38,6 +39,7 @@ public class BidServiceImpl implements BidService {
     private final AuctionSessionRealtimeService auctionSessionRealtimeService;
 
     private final AuctionSessionCacheService auctionSessionCacheService;
+    private final RateLimiterService rateLimiterService;
 
     @Override
     public PlaceBidResponse placeBid(PlaceBidRequest request) {
@@ -61,7 +63,7 @@ public class BidServiceImpl implements BidService {
 
         AuctionSession session = auctionSessionRepository.findById(request.getAuctionSessionId())
                 .orElseThrow(() -> AppException.notFound("Phiên đấu giá không hợp lệ hoặc không tồn tại"));
-
+        rateLimiterService.checkBidLimit(user.getId(), session.getId());
         validateSessionCanBid(session);
 
         AuctionParticipation participation = auctionParticipationRepository

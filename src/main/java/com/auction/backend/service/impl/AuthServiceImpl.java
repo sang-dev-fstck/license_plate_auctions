@@ -9,6 +9,7 @@ import com.auction.backend.enums.Role;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.AccountRepository;
 import com.auction.backend.repository.WalletRepository;
+import com.auction.backend.security.ratelimit.RateLimiterService;
 import com.auction.backend.security.session.AuthCookieNames;
 import com.auction.backend.security.session.AuthCookieService;
 import com.auction.backend.security.session.AuthSessionResult;
@@ -27,6 +28,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
+import static com.auction.backend.common.IpAddressUtils.getClientIpAddress;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -37,6 +40,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final AuthCookieService authCookieService;
     private final AuthSessionService authSessionService;
+    private final RateLimiterService rateLimiterService;
 
     @Override
     public String register(RegisterRequest request) {
@@ -73,6 +77,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public String login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        String email = normalizeEmail(request.getEmail());
+        String ipAddress = getClientIpAddress(httpRequest);
+        rateLimiterService.checkLoginLimit(ipAddress, email);
+
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -165,4 +173,5 @@ public class AuthServiceImpl implements AuthService {
         }
         return phone.trim();
     }
+
 }
