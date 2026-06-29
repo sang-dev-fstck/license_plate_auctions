@@ -12,6 +12,7 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HexFormat;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -19,13 +20,18 @@ import java.util.HexFormat;
 public class RateLimiterServiceImpl implements RateLimiterService {
     private static final int LOGIN_IP_LIMIT = 10;
     private static final Duration LOGIN_IP_WINDOW = Duration.ofMinutes(1);
+    private static final int BID_LIMIT = 5;
+    private static final Duration BID_WINDOW = Duration.ofSeconds(10);
 
     private static final int LOGIN_EMAIL_LIMIT = 5;
     private static final Duration LOGIN_EMAIL_WINDOW = Duration.ofMinutes(5);
 
     private static final String LOGIN_IP_KEY_PREFIX = "rate:login:ip:";
     private static final String LOGIN_EMAIL_KEY_PREFIX = "rate:login:email:";
+    private static final String BID_KEY_PREFIX = "rate:bid:account:";
+
     private static final DefaultRedisScript<Long> FIXED_WINDOW_SCRIPT;
+    private static final DefaultRedisScript<Long> SLIDING_WINDOW_SCRIPT;
 
     static {
         FIXED_WINDOW_SCRIPT = new DefaultRedisScript<>();
@@ -37,6 +43,31 @@ public class RateLimiterServiceImpl implements RateLimiterService {
                 return current
                 """);
         FIXED_WINDOW_SCRIPT.setResultType(Long.class);
+
+        //---------//
+        SLIDING_WINDOW_SCRIPT = new DefaultRedisScript<>();
+        SLIDING_WINDOW_SCRIPT.setScriptText("""
+                local key = KEYS[1]
+                local now = tonumber(ARGV[1])
+                local window = tonumber(ARGV[2])
+                local limit = tonumber(ARGV[3])
+                local member = ARGV[4]
+                
+                redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
+                
+                local current = redis.call('ZCARD', key)
+                
+                if current >= limit then
+                    redis.call('PEXPIRE', key, window)
+                    return 0
+                end
+                
+                redis.call('ZADD', key, now, member)
+                redis.call('PEXPIRE', key, window)
+                
+                return current + 1
+                """);
+        SLIDING_WINDOW_SCRIPT.setResultType(Long.class);
     }
 
     private final StringRedisTemplate stringRedisTemplate;
@@ -61,10 +92,37 @@ public class RateLimiterServiceImpl implements RateLimiterService {
         );
     }
 
+    @Override
+    public void checkBidLimit(String accountId, String sessionId) {
+        String key = buildBidKey(accountId, sessionId);
+        long result = checkSlidingWindow(key, BID_WINDOW, BID_LIMIT);
+        if (result == 0) {
+            throw new RateLimitExceededException(
+                    "Bạn đang gửi giá quá nhanh, vui lòng thử lại sau",
+                    BID_WINDOW
+            );
+        }
+    }
+
     private long incrementKeyAndExpire(String key, Duration window) {
-        return stringRedisTemplate.execute(FIXED_WINDOW_SCRIPT,
+        return stringRedisTemplate.execute(
+                FIXED_WINDOW_SCRIPT,
                 Collections.singletonList(key),
                 String.valueOf(window.toMillis())
+        );
+    }
+
+    private long checkSlidingWindow(String key, Duration window, int limit) {
+        long now = System.currentTimeMillis();
+        String member = now + ":" + UUID.randomUUID();
+
+        return stringRedisTemplate.execute(
+                SLIDING_WINDOW_SCRIPT,
+                Collections.singletonList(key),
+                String.valueOf(now),
+                String.valueOf(window.toMillis()),
+                String.valueOf(limit),
+                member
         );
     }
 
@@ -84,6 +142,13 @@ public class RateLimiterServiceImpl implements RateLimiterService {
                 .replace(":", "_")
                 .replace("/", "_")
                 .replace(" ", "_");
+    }
+
+    private String buildBidKey(String accountId, String sessionId) {
+        return BID_KEY_PREFIX
+                + normalizeKeyPart(accountId)
+                + ":session:"
+                + normalizeKeyPart(sessionId);
     }
 
     private String sha256(String raw) {
