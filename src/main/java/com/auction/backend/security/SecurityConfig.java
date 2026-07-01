@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -46,7 +45,7 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
-    @Value("${app.security.csrf.enabled:`true`}")
+    @Value("${app.security.csrf.enabled:true}")
     private boolean csrfEnabled;
 
     @Value("${app.csrf.cookie.secure:true}")
@@ -93,23 +92,8 @@ public class SecurityConfig {
                 )
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(
-                                "/api/v1/auth/register",
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/csrf",
-                                "/api/v1/health"
-                        ).permitAll()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/plates",
-                                "/api/v1/categories",
-                                "/api/v1/tag-rules",
-                                "/api/v1/auction-sessions/customer",
-                                "/api/v1/auction-sessions/**"
-                        ).permitAll()
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/v1/plates/search"
-                        ).permitAll()
+                        .requestMatchers(SecurityRequestMatchers.OPTIONS).permitAll()
+                        .requestMatchers(SecurityRequestMatchers.publicMatchers()).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex
@@ -151,6 +135,7 @@ public class SecurityConfig {
             http.csrf(csrf -> csrf
                     .csrfTokenRepository(csrfTokenRepository)
                     .csrfTokenRequestHandler(requestHandler)
+                    .ignoringRequestMatchers(SecurityRequestMatchers.csrfIgnoredMatchers())
             );
         } else {
             http.csrf(AbstractHttpConfigurer::disable);
