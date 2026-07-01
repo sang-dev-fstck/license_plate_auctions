@@ -46,7 +46,7 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
-    @Value("${app.security.csrf.enabled:false}")
+    @Value("${app.security.csrf.enabled:true}")
     private boolean csrfEnabled;
 
     // Thuật toán Băm (Hash) mật khẩu một chiều: BCrypt (Chuẩn an toàn hiện nay)
