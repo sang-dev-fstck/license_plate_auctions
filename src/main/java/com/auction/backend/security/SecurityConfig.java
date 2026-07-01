@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -18,7 +17,6 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,7 +28,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -42,12 +39,6 @@ public class SecurityConfig {
     private final CustomUserDetailsService customUserDetailsService;
     private final ObjectMapper objectMapper; // inject từ Spring
     private final OpaqueTokenAuthenticationFilter opaqueTokenAuthenticationFilter;
-
-    @Value("${app.cors.allowed-origins:http://localhost:5173}")
-    private String allowedOrigins;
-
-    @Value("${app.security.csrf.enabled:false}")
-    private boolean csrfEnabled;
 
     // Thuật toán Băm (Hash) mật khẩu một chiều: BCrypt (Chuẩn an toàn hiện nay)
     @Bean
@@ -80,8 +71,13 @@ public class SecurityConfig {
 
         CsrfTokenRequestAttributeHandler requestHandler =
                 new CsrfTokenRequestAttributeHandler();
+
         http
                 .cors(Customizer.withDefaults())
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(requestHandler)
+                )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
@@ -91,8 +87,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
-                                "/api/v1/auth/csrf",
-                                "/api/v1/health"
+                                "/api/v1/auth/csrf"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/plates",
@@ -132,23 +127,17 @@ public class SecurityConfig {
                         })
                 )
                 .addFilterBefore(opaqueTokenAuthenticationFilter, AuthorizationFilter.class);
-        if (csrfEnabled) {
-            http.csrf(csrf -> csrf
-                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                    .csrfTokenRequestHandler(requestHandler)
-            );
-        } else {
-            http.csrf(AbstractHttpConfigurer::disable);
-        }
+
         return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(parseAllowedOrigins());
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173"
+        ));
 
         configuration.setAllowedMethods(List.of(
                 "GET",
@@ -172,13 +161,6 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
 
         return source;
-    }
-
-    private List<String> parseAllowedOrigins() {
-        return Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(origin -> !origin.isBlank())
-                .toList();
     }
 
     private void writeErrorResponse(HttpServletResponse response,
