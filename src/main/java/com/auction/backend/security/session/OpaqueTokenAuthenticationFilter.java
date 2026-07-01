@@ -1,5 +1,6 @@
 package com.auction.backend.security.session;
 
+import com.auction.backend.security.SecurityRequestMatchers;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -112,4 +113,8 @@ public class OpaqueTokenAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return SecurityRequestMatchers.SKIP_OPAQUE_TOKEN_FILTER.matches(request);
+    }
 }
