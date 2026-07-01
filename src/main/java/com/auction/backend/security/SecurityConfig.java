@@ -149,7 +149,6 @@ public class SecurityConfig {
             );
 
             http.csrf(csrf -> csrf
-                    .ignoringRequestMatchers("/api/v1/auth/login")
                     .csrfTokenRepository(csrfTokenRepository)
                     .csrfTokenRequestHandler(requestHandler)
             );
