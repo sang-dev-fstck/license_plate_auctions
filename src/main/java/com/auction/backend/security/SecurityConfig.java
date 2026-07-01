@@ -46,7 +46,7 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
-    @Value("${app.security.csrf.enabled:true}")
+    @Value("${app.security.csrf.enabled:`true`}")
     private boolean csrfEnabled;
 
     @Value("${app.csrf.cookie.secure:true}")
@@ -86,15 +86,6 @@ public class SecurityConfig {
 
         CsrfTokenRequestAttributeHandler requestHandler =
                 new CsrfTokenRequestAttributeHandler();
-
-        CookieCsrfTokenRepository csrfTokenRepository =
-                CookieCsrfTokenRepository.withHttpOnlyFalse();
-
-        csrfTokenRepository.setCookieCustomizer(cookie -> cookie
-                .secure(csrfCookieSecure)
-                .sameSite(csrfCookieSameSite)
-                .path("/")
-        );
         http
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session
@@ -148,8 +139,18 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(opaqueTokenAuthenticationFilter, AuthorizationFilter.class);
         if (csrfEnabled) {
+            CookieCsrfTokenRepository csrfTokenRepository =
+                    CookieCsrfTokenRepository.withHttpOnlyFalse();
+
+            csrfTokenRepository.setCookieCustomizer(cookie -> cookie
+                    .secure(csrfCookieSecure)
+                    .sameSite(csrfCookieSameSite)
+                    .path("/")
+            );
+
             http.csrf(csrf -> csrf
-                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .ignoringRequestMatchers("/api/v1/auth/login")
+                    .csrfTokenRepository(csrfTokenRepository)
                     .csrfTokenRequestHandler(requestHandler)
             );
         } else {
