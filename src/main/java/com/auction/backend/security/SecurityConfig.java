@@ -49,6 +49,12 @@ public class SecurityConfig {
     @Value("${app.security.csrf.enabled:true}")
     private boolean csrfEnabled;
 
+    @Value("${app.csrf.cookie.secure:true}")
+    private boolean csrfCookieSecure;
+
+    @Value("${app.csrf.cookie.same-site:None}")
+    private String csrfCookieSameSite;
+
     // Thuật toán Băm (Hash) mật khẩu một chiều: BCrypt (Chuẩn an toàn hiện nay)
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -80,6 +86,15 @@ public class SecurityConfig {
 
         CsrfTokenRequestAttributeHandler requestHandler =
                 new CsrfTokenRequestAttributeHandler();
+
+        CookieCsrfTokenRepository csrfTokenRepository =
+                CookieCsrfTokenRepository.withHttpOnlyFalse();
+
+        csrfTokenRepository.setCookieCustomizer(cookie -> cookie
+                .secure(csrfCookieSecure)
+                .sameSite(csrfCookieSameSite)
+                .path("/")
+        );
         http
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session
