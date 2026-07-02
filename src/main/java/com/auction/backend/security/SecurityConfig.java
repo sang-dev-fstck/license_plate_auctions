@@ -42,7 +42,7 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper; // inject từ Spring
     private final OpaqueTokenAuthenticationFilter opaqueTokenAuthenticationFilter;
 
-    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
     @Value("${app.security.csrf.enabled:true}")
