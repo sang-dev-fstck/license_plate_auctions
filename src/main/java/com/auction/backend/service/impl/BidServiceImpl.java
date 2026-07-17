@@ -43,11 +43,14 @@ public class BidServiceImpl implements BidService {
 
     @Override
     public PlaceBidResponse placeBid(PlaceBidRequest request) {
+
         int maxAttempts = 3;
+        Account user = currentAccountProvider.getCurrentAccount();
+        rateLimiterService.checkBidLimit(user.getId(), request.getAuctionSessionId());
 
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                return placeBidOnce(request);
+                return placeBidOnce(user, request);
             } catch (OptimisticLockingFailureException e) {
                 if (attempt == maxAttempts) {
                     throw new AppException("Có người vừa đặt giá trước bạn, vui lòng thử lại");
@@ -58,12 +61,10 @@ public class BidServiceImpl implements BidService {
         throw new AppException("Không thể đặt giá, vui lòng thử lại");
     }
 
-    private PlaceBidResponse placeBidOnce(PlaceBidRequest request) {
-        Account user = currentAccountProvider.getCurrentAccount();
+    private PlaceBidResponse placeBidOnce(Account user, PlaceBidRequest request) {
 
         AuctionSession session = auctionSessionRepository.findById(request.getAuctionSessionId())
                 .orElseThrow(() -> AppException.notFound("Phiên đấu giá không hợp lệ hoặc không tồn tại"));
-        rateLimiterService.checkBidLimit(user.getId(), session.getId());
         validateSessionCanBid(session);
 
         AuctionParticipation participation = auctionParticipationRepository
