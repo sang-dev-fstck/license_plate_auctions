@@ -16,6 +16,7 @@ import com.auction.backend.security.ratelimit.RateLimiterService;
 import com.auction.backend.service.AuctionSessionCacheService;
 import com.auction.backend.service.AuctionSessionRealtimeService;
 import com.auction.backend.service.BidService;
+import com.auction.backend.service.policy.BidAmountPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -40,6 +41,8 @@ public class BidServiceImpl implements BidService {
 
     private final AuctionSessionCacheService auctionSessionCacheService;
     private final RateLimiterService rateLimiterService;
+
+    private final BidAmountPolicy bidAmountPolicy;
 
     @Override
     public PlaceBidResponse placeBid(PlaceBidRequest request) {
@@ -72,7 +75,7 @@ public class BidServiceImpl implements BidService {
                 .orElseThrow(() -> new AppException("Người dùng chưa đặt cọc cho session này"));
 
         validateParticipation(participation);
-        validateBidAmount(request.getAmount(), session);
+        validateBidAmount(request, session);
 
         boolean isCurrentLeader = isCurrentLeader(session, user);
 
@@ -370,19 +373,12 @@ public class BidServiceImpl implements BidService {
         }
     }
 
-    private void validateBidAmount(BigDecimal amount, AuctionSession session) {
-        BigDecimal stepPrice = session.getBidStepAmountSnapshot();
-        BigDecimal currentPrice = session.getCurrentPrice();
-        BigDecimal validPBidAmount = currentPrice.add(stepPrice);
-
-        if (amount.compareTo(validPBidAmount) < 0) {
-            throw new AppException(String.format(
-                    "Giá đặt phải ≥ %sVNĐ (giá hiện tại %sVNĐ + bước giá %sVNĐ)",
-                    MoneyUtils.format(validPBidAmount),
-                    MoneyUtils.format(currentPrice),
-                    MoneyUtils.format(stepPrice)
-            ));
-        }
+    private void validateBidAmount(PlaceBidRequest request, AuctionSession session) {
+        bidAmountPolicy.validate(
+                request.getAmount(),
+                session.getCurrentPrice(),
+                session.getBidStepAmountSnapshot()
+        );
     }
 
     private void validateSessionCanBid(AuctionSession session) {
