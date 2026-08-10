@@ -45,7 +45,7 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
 
-    @Value("${app.security.csrf.enabled:true}")
+    @Value("${app.security.csrf.enabled}")
     private boolean csrfEnabled;
 
     @Value("${app.csrf.cookie.secure:true}")

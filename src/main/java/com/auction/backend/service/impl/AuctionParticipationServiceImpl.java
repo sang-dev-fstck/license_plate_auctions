@@ -5,7 +5,6 @@ import com.auction.backend.dto.JoinAuctionSessionResponse;
 import com.auction.backend.entity.Account;
 import com.auction.backend.entity.AuctionParticipation;
 import com.auction.backend.entity.AuctionSession;
-import com.auction.backend.enums.AuctionSessionStatus;
 import com.auction.backend.enums.ParticipationStatus;
 import com.auction.backend.exception.AppException;
 import com.auction.backend.repository.AuctionParticipationRepository;
@@ -122,7 +121,7 @@ public class AuctionParticipationServiceImpl implements AuctionParticipationServ
     }
 
     private void validateSessionCanReserve(AuctionSession session) {
-        if (session.getStatus() != AuctionSessionStatus.SCHEDULED) {
+        if (!session.getStatus().allowsReservation()) {
             throw new AppException("Phiên đấu giá hiện không cho phép đặt cọc tham gia");
         }
         LocalDateTime now = LocalDateTime.now();

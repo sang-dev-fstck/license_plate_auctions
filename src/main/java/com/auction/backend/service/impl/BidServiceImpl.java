@@ -5,7 +5,6 @@ import com.auction.backend.dto.AuctionSessionRealtimeEvent;
 import com.auction.backend.dto.PlaceBidRequest;
 import com.auction.backend.dto.PlaceBidResponse;
 import com.auction.backend.entity.*;
-import com.auction.backend.enums.AuctionSessionStatus;
 import com.auction.backend.enums.BidStatus;
 import com.auction.backend.enums.EventType;
 import com.auction.backend.enums.ParticipationStatus;
@@ -382,7 +381,7 @@ public class BidServiceImpl implements BidService {
     }
 
     private void validateSessionCanBid(AuctionSession session) {
-        if (session.getStatus() != AuctionSessionStatus.ACTIVE) {
+        if (!session.getStatus().allowsBidding()) {
             throw new AppException("Phiên đấu giá hiện không cho phép đặt giá");
         }
         LocalDateTime now = LocalDateTime.now();
